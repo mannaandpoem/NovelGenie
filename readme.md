@@ -30,6 +30,12 @@ WebNovelGPT 是一个用于生成网络小说的 Python 项目。该项目可以
 
 ## 使用方法
 
+### 配置
+在使用之前，请先查看 `config.example.yaml` 并根据需要创建和配置 `config.yaml` 文件。
+
+1. 打开 `config.example.yaml` 文件，查看并理解各个配置项的含义。
+2. 创建一个新的 `config.yaml` 文件，并根据 `config.example.yaml` 中的示例进行配置。
+
 ### 从头开始生成小说
 
 ```python
