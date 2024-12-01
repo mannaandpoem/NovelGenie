@@ -1,6 +1,8 @@
-from web_novel_gpt.config import config
-import openai
 import asyncio
+
+import openai
+
+from web_novel_gpt.config import config
 
 
 class LLM:
@@ -34,7 +36,7 @@ class LLM:
             messages=[{"role": "user", "content": prompt}],
             max_tokens=self.max_tokens,
             temperature=self.temperature,
-            stream=stream
+            stream=stream,
         )
 
         if not stream:
@@ -58,10 +60,10 @@ class LLM:
 
 # Example usage
 if __name__ == "__main__":
+
     async def main():
         llm = LLM()
         response = await llm.ask("Write a hello world program in Python.")
         print("\n\nResponse:", response)
-
 
     asyncio.run(main())

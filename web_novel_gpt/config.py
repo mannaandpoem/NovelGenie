@@ -1,10 +1,12 @@
 import os
-import yaml
 import threading
+
+import yaml
 
 
 class Config:
     """单例模式的配置类"""
+
     _instance_lock = threading.Lock()
 
     def __new__(cls, *args, **kwargs):

@@ -1,6 +1,6 @@
 import json
 import re
-from typing import Tuple, Dict, Any
+from typing import Any, Dict, Tuple
 
 
 def save_output(content: str, file_path: str) -> None:
@@ -20,7 +20,7 @@ def json_parse(response: str) -> str:
         str: Cleaned JSON string
     """
     # Try to find JSON pattern in the response
-    json_pattern = r'\{[\s\S]*\}'
+    json_pattern = r"\{[\s\S]*\}"
     match = re.search(json_pattern, response)
 
     if match:
@@ -41,10 +41,10 @@ def parse_intent(response: str) -> Tuple[str, str, int, int]:
     intent = json_parse(response)
     intent_json = json.loads(intent)
     return (
-        intent_json.get('description'),
-        intent_json.get('genre'),
-        intent_json.get('word_count'),
-        intent_json.get('volume_count')
+        intent_json.get("description"),
+        intent_json.get("genre"),
+        intent_json.get("word_count"),
+        intent_json.get("volume_count"),
     )
 
 
@@ -74,10 +74,7 @@ class Cost:
         self._costs.append(value)
 
     def get(self) -> Dict[str, Any]:
-        return {
-            "accumulated_cost": self._accumulated_cost,
-            "costs": self._costs
-        }
+        return {"accumulated_cost": self._accumulated_cost, "costs": self._costs}
 
     def log(self) -> str:
         cost = self.get()
