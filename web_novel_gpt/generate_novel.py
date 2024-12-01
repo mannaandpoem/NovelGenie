@@ -87,10 +87,11 @@ class WebNovelGPT:
         self.novel_saver = NovelSaver()
         self._current_novel_id = None
 
-    def _generate_novel_id(self, description: str) -> str:
+    @staticmethod
+    def _generate_novel_id(description: str) -> str:
         """生成唯一的小说ID"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        return f"{description[:20]}_{timestamp}"
+        return f"{description[:5]}_{timestamp}"
 
     async def analyze_intent(self, user_input: str) -> NovelIntent:
         """Analyze user input to extract story details."""
@@ -206,7 +207,7 @@ class WebNovelGPT:
             try:
                 chapter = await self.generate_chapter(
                     designated_chapter=i,
-                    detailed_outline=chapter_outline,   # TODO: Fix this
+                    detailed_outline=chapter_outline,  # TODO: Fix this
                     rough_outline=rough_outline,
                     section_word_count=section_word_count,
                     chapters=chapters
@@ -268,6 +269,39 @@ class WebNovelGPT:
         )
         return await self.llm.ask(prompt)
 
+    async def generate_volumes(
+            self,
+            num_volumes: int,
+            intent: NovelIntent,
+            rough_outline: str,
+            section_word_count: int,
+            prev_volume_summary: Optional[str] = None
+    ) -> List[NovelVolume]:
+        """Generate volumes for the novel."""
+        volumes = []
+
+        for i in range(num_volumes):
+            volume = await self.generate_volume(
+                volume_number=i + 1,
+                intent=intent,
+                rough_outline=rough_outline,
+                section_word_count=section_word_count,
+                prev_volume_summary=prev_volume_summary
+            )
+            volumes.append(volume)
+            prev_volume_summary = volume.outline_summary
+
+            # 保存当前进度
+            current_state = {
+                "intent": asdict(intent),
+                "rough_outline": rough_outline,
+                "volumes": [asdict(v) for v in volumes],
+                "current_volume": None
+            }
+            self.novel_saver.save_checkpoint(self._current_novel_id, current_state)
+
+        return volumes
+
     async def generate_novel(
             self,
             user_input: str,
@@ -305,28 +339,7 @@ class WebNovelGPT:
         self.novel_saver.save_checkpoint(self._current_novel_id, initial_state)
 
         # 按卷生成内容
-        volumes = []
-        prev_volume_summary = None
-
-        for i in range(num_volumes):
-            volume = await self.generate_volume(
-                volume_number=i + 1,
-                intent=intent,
-                rough_outline=rough_outline,
-                section_word_count=section_word_count,
-                prev_volume_summary=prev_volume_summary
-            )
-            volumes.append(volume)
-            prev_volume_summary = volume.outline_summary
-
-            # 保存当前进度
-            current_state = {
-                "intent": asdict(intent),
-                "rough_outline": rough_outline,
-                "volumes": [asdict(v) for v in volumes],
-                "current_volume": None
-            }
-            self.novel_saver.save_checkpoint(self._current_novel_id, current_state)
+        volumes = await self.generate_volumes(num_volumes, intent, rough_outline, section_word_count)
 
         novel = Novel(
             intent=intent,
@@ -355,26 +368,13 @@ class WebNovelGPT:
         current_volume = len(volumes)
         prev_volume_summary = volumes[-1].outline_summary if volumes else None
 
-        # 继续生成剩余卷数
-        for i in range(current_volume, num_volumes):
-            volume = await self.generate_volume(
-                volume_number=i + 1,
-                intent=intent,
-                rough_outline=rough_outline,
-                section_word_count=section_word_count,
-                prev_volume_summary=prev_volume_summary
-            )
-            volumes.append(volume)
-            prev_volume_summary = volume.outline_summary
-
-            # 更新检查点
-            current_state = {
-                "intent": asdict(intent),
-                "rough_outline": rough_outline,
-                "volumes": [asdict(v) for v in volumes],
-                "current_volume": None
-            }
-            self.novel_saver.save_checkpoint(self._current_novel_id, current_state)
+        volumes = await self.generate_volumes(
+            num_volumes - current_volume,
+            intent,
+            rough_outline,
+            section_word_count,
+            prev_volume_summary
+        )
 
         novel = Novel(
             intent=intent,
