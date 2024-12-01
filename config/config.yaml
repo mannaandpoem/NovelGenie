@@ -1,0 +1,5 @@
+model: "gpt-4o-mini"  # or gpt-4o
+base_url: "https://api.openai.com/v1"  # or forward url / other llm url
+api_key: "sk-..." # your api key
+max_tokens: 1000  # max tokens for each request
+temperature: 0.7  # temperature for sampling
