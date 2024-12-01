@@ -1,6 +1,7 @@
 import openai
 
-from web_novel_gpt.prompts.content_optimizer_prompt import CONTENT_OPTIMIZER_PROMPT
+from web_novel_gpt.prompts.content_optimizer_prompt import \
+    CONTENT_OPTIMIZER_PROMPT
 
 
 def optimize_content(chapters, config):

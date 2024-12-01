@@ -1,9 +1,9 @@
 import openai
 
-from web_novel_gpt.prompts.detail_outline_generator_prompt import (
-    DETAILED_OUTLINE_GENERATOR_PROMPT,
-)
-from web_novel_gpt.prompts.rough_outline_prompt import ROUGH_OUTLINE_GENERATOR_PROMPT
+from web_novel_gpt.prompts.detail_outline_generator_prompt import \
+    DETAILED_OUTLINE_GENERATOR_PROMPT
+from web_novel_gpt.prompts.rough_outline_prompt import \
+    ROUGH_OUTLINE_GENERATOR_PROMPT
 
 
 def generate_rough_outline(config):

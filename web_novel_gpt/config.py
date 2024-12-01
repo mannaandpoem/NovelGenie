@@ -2,24 +2,56 @@ import os
 import threading
 
 import yaml
+from pydantic import BaseModel, Field
+
+
+class LLMSettings(BaseModel):
+    """LLM相关配置"""
+
+    model: str = Field(..., description="模型名称")
+    base_url: str = Field(..., description="API基础URL")
+    api_key: str = Field(..., description="API密钥")
+    max_tokens: int = Field(1000, description="每个请求的最大token数")
+    temperature: float = Field(0.7, description="采样温度")
+
+
+class NovelSettings(BaseModel):
+    """小说生成相关配置"""
+
+    volumes_num: int = Field(1, description="卷数")
+    chapter_num: int = Field(3, description="每卷章节数")
+    section_word_count: int = Field(1000, description="每节字数")
+    workspace: str = Field("workspace", description="工作目录")
+
+
+class AppConfig(BaseModel):
+    """应用总配置"""
+
+    llm: LLMSettings
+    novel: NovelSettings
 
 
 class Config:
-    """单例模式的配置类"""
+    """单例配置类"""
 
-    _instance_lock = threading.Lock()
+    _instance = None
+    _lock = threading.Lock()
+    _initialized = False
 
-    def __new__(cls, *args, **kwargs):
-        if not hasattr(cls, "_instance"):
-            with cls._instance_lock:
-                if not hasattr(cls, "_instance"):
+    def __new__(cls):
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
                     cls._instance = super().__new__(cls)
         return cls._instance
 
     def __init__(self):
-        if not hasattr(self, "_is_initialized"):
-            self._is_initialized = True
-            self._config = self._load_config()
+        if not self._initialized:
+            with self._lock:
+                if not self._initialized:
+                    self._config = None
+                    self._load_initial_config()
+                    self._initialized = True
 
     def _get_project_root(self) -> str:
         """获取项目根目录"""
@@ -30,7 +62,6 @@ class Config:
         root = self._get_project_root()
         config_path = os.path.join(root, "config", "config.yaml")
         if not os.path.exists(config_path):
-            # 如果 config.yaml 不存在，尝试加载 config.example.yaml
             config_path = os.path.join(root, "config", "config.example.yaml")
         if not os.path.exists(config_path):
             raise FileNotFoundError("未找到配置文件 config.yaml 或 config.example.yaml")
@@ -42,14 +73,49 @@ class Config:
         with open(config_path, "r", encoding="utf-8") as f:
             return yaml.safe_load(f)
 
-    def get(self, key, default=None):
-        """获取配置中的值"""
-        return self._config.get(key, default)
+    def _load_initial_config(self):
+        """初始化配置"""
+        raw_config = self._load_config()
 
-    def set(self, key, value):
-        """动态设置配置的值"""
-        self._config[key] = value
+        config_dict = {
+            "llm": {
+                "model": raw_config.get("llm", {}).get("model"),
+                "base_url": raw_config.get("llm", {}).get("base_url"),
+                "api_key": raw_config.get("llm", {}).get("api_key"),
+                "max_tokens": raw_config.get("llm", {}).get("max_tokens", 1000),
+                "temperature": raw_config.get("llm", {}).get("temperature", 0.7),
+            },
+            "novel": {
+                "volumes_num": raw_config.get("novel", {}).get("volumes_num", 1),
+                "section_word_count": raw_config.get("novel", {}).get(
+                    "section_word_count", 1000
+                ),
+            },
+        }
+
+        self._config = AppConfig(**config_dict)
+
+    @property
+    def llm(self) -> LLMSettings:
+        """获取LLM配置"""
+        return self._config.llm
+
+    @property
+    def novel(self) -> NovelSettings:
+        """获取小说生成配置"""
+        return self._config.novel
 
 
 # 实例化配置对象
 config = Config()
+
+# 示例使用
+if __name__ == "__main__":
+    # LLM配置访问
+    print(f"Model: {config.llm.model}")
+    print(f"API Key: {config.llm.api_key}")
+    print(f"Max Tokens: {config.llm.max_tokens}")
+
+    # 小说配置访问
+    print(f"Number of Volumes: {config.novel.volumes_num}")
+    print(f"Section Word Count: {config.novel.section_word_count}")

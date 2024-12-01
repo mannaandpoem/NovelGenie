@@ -17,6 +17,7 @@ DETAILED_OUTLINE_GENERATOR_PROMPT = """
 {prev_volume_summary}
 
 # 输出格式
+# 第x章
 ## 第x章基础信息
 1. 明确章节类型
   过渡章:调节节奏,转换氛围
@@ -134,6 +135,9 @@ DETAILED_OUTLINE_SUMMARY_PROMPT = """
 根据用户输入的网文粗纲和网文细纲生成对应的细纲总结：
 
 # 用户输入
+## 指定章节范围
+{chapter_num}
+
 ## 网文细纲：第{volume_number}卷
 {detailed_outline}
 

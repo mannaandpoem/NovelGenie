@@ -1,6 +1,7 @@
 import openai
 
-from web_novel_gpt.prompts.chapter_generator_prompt import CHAPTER_GENERATOR_PROMPT
+from web_novel_gpt.prompts.chapter_generator_prompt import \
+    CHAPTER_GENERATOR_PROMPT
 
 
 def generate_chapters(detailed_outline, config):

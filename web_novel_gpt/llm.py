@@ -1,24 +1,40 @@
 import asyncio
+from typing import Optional
 
 import openai
+from pydantic import BaseModel, Field, model_validator
 
-from web_novel_gpt.config import config
+from web_novel_gpt.config import LLMSettings, config
 
 
-class LLM:
-    def __init__(self):
-        """
-        Initialize LLM with configuration from app config.
-        """
-        self.model = config.get("model", "gpt-4")
-        self.api_key = config.get("api_key")
-        self.base_url = config.get("base_url", None)
-        self.max_tokens = config.get("max_tokens", 1000)
-        self.temperature = config.get("temperature", 0.7)
+class LLM(BaseModel):
+    config: LLMSettings = Field(...)
+    model: str = Field(...)
+    api_key: str = Field(...)
+    base_url: Optional[str] = Field(None)
+    max_tokens: int = Field(1000)
+    temperature: float = Field(0.7)
 
+    @model_validator(mode="after")
+    def initialize_openai(self) -> "LLM":
         openai.api_key = self.api_key
         if self.base_url:
             openai.api_base = self.base_url
+        return self
+
+    def __init__(self, llm_config: Optional[LLMSettings] = None, **data):
+        if llm_config is None:
+            llm_config = config.llm
+
+        super().__init__(
+            config=llm_config,
+            model=llm_config.model,
+            api_key=llm_config.api_key,
+            base_url=llm_config.base_url,
+            max_tokens=llm_config.max_tokens,
+            temperature=llm_config.temperature,
+            **data
+        )
 
     async def ask(self, prompt: str, stream: bool = True) -> str:
         """
