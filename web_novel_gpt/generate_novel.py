@@ -1,4 +1,3 @@
-import asyncio
 import json
 import os
 from dataclasses import dataclass, asdict
@@ -336,6 +335,9 @@ class WebNovelGPT:
             cost_info=self.cost_tracker.get()
         )
 
+        # 保存最终小说内容
+        self.novel_saver.save_checkpoint(self._current_novel_id, asdict(novel))
+
         return asdict(novel)
 
     async def _resume_generation(
@@ -382,34 +384,3 @@ class WebNovelGPT:
         )
 
         return asdict(novel)
-
-
-async def main():
-    """Example usage of WebNovelGPT."""
-    novel_generator = WebNovelGPT()
-    user_input = "这是一个非常非常短的故事，一个普通上班族意外获得系统，开始了自己的职场逆袭之路。要求网文共2卷，每卷2章，每章1000字，共计4000字。"
-
-    try:
-        # 从头开始生成
-        novel = await novel_generator.generate_novel(
-            user_input=user_input,
-            section_word_count=1000,
-            num_volumes=4
-        )
-        print(json.dumps(novel, indent=4, ensure_ascii=False))
-
-        # 或者从某个检查点恢复
-        # novel = await novel_generator.generate_novel(
-        #     user_input=user_input,
-        #     section_word_count=2000,
-        #     num_volumes=3,
-        #     resume_novel_id="your_novel
-        # )
-        # print(json.dumps(novel, indent=4, ensure_ascii=False))
-
-    except Exception as e:
-        print(f"Error generating novel: {str(e)}")
-
-
-if __name__ == '__main__':
-    asyncio.run(main())
