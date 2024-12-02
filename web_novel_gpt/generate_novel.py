@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from web_novel_gpt.config import config
+from web_novel_gpt.config import WebNovelGenerationConfig
 from web_novel_gpt.cost import Cost
 from web_novel_gpt.exceptions import ChapterGenerationError
 from web_novel_gpt.llm import LLM
@@ -19,19 +19,6 @@ from web_novel_gpt.prompts.detail_outline_generator_prompt import (
 from web_novel_gpt.prompts.intent_analyzer_prompt import INTENT_ANALYZER_PROMPT
 from web_novel_gpt.prompts.rough_outline_prompt import ROUGH_OUTLINE_GENERATOR_PROMPT
 from web_novel_gpt.utils import parse_intent, save_checkpoint
-
-
-class WebNovelGenerationConfig(BaseModel):
-    """Web novel generation configuration."""
-
-    section_word_count: int = Field(
-        default_factory=lambda: config.novel.section_word_count
-    )
-    volume_count: int = Field(default_factory=lambda: config.novel.volume_count)
-    chapter_count_per_volume: int = Field(
-        default_factory=lambda: config.novel.chapter_count_per_volume
-    )
-    workspace: str = Field(default_factory=lambda: config.novel.workspace)
 
 
 class WebNovelGPT(BaseModel):
@@ -119,6 +106,7 @@ class WebNovelGPT(BaseModel):
             if chapter.strip() and re.match(r"^#\s第[0-9]+章(?:\s|$)", chapter.strip())
         ]
 
+    @save_checkpoint("chapter")
     async def generate_chapter(
         self,
         designated_chapter: int,
@@ -138,6 +126,7 @@ class WebNovelGPT(BaseModel):
         )
         return await self.llm.ask(prompt)
 
+    @save_checkpoint("chapter")
     async def _optimize_chapter(self, chapter: str) -> str:
         """Optimize a single chapter."""
         prompt = CONTENT_OPTIMIZER_PROMPT.format(
@@ -155,7 +144,7 @@ class WebNovelGPT(BaseModel):
     ) -> str:
         """Generate detailed outline for a volume."""
         chapter_count_per_volume = self.gen_config.chapter_count_per_volume
-        start_chapter_count = (
+        start_chapter = (
             volume_number * chapter_count_per_volume - chapter_count_per_volume + 1
         )
         prompt = DETAILED_OUTLINE_GENERATOR_PROMPT.format(
@@ -164,7 +153,7 @@ class WebNovelGPT(BaseModel):
             rough_outline=rough_outline,
             section_word_count=self.gen_config.section_word_count,
             prev_volume_summary=prev_volume_summary or "无",
-            chapter_range=f"第{volume_number}卷第{start_chapter_count}-{chapter_count_per_volume}章",
+            chapter_range=f"第{volume_number}卷：第{start_chapter}-{start_chapter + chapter_count_per_volume - 1}章",
         )
         return await self.llm.ask(prompt)
 
@@ -228,12 +217,6 @@ class WebNovelGPT(BaseModel):
             chapters.append(chapter)
             volume.chapters = chapters
 
-            # Save individual chapter
-            if self.current_novel_id:
-                self.novel_saver.save_chapter(
-                    self.current_novel_id, volume_number, i, chapter
-                )
-
         return volume
 
     async def generate_volumes(
@@ -256,16 +239,6 @@ class WebNovelGPT(BaseModel):
             )
             volumes.append(volume)
             current_summary = volume.outline_summary
-
-            # Save progress
-            if self.current_novel_id:
-                current_state = {
-                    "intent": intent.model_dump(),
-                    "rough_outline": rough_outline,
-                    "volumes": [v.model_dump() for v in volumes],
-                    "current_volume": None,
-                }
-                self.novel_saver.save_checkpoint(self.current_novel_id, current_state)
 
         return volumes
 
@@ -295,14 +268,6 @@ class WebNovelGPT(BaseModel):
             user_input, self.current_intent
         )
 
-        initial_state = {
-            "intent": self.current_intent.model_dump(),
-            "rough_outline": self.current_rough_outline,
-            "volumes": [],
-            "current_volume": None,
-        }
-        self.novel_saver.save_checkpoint(self.current_novel_id, initial_state)
-
         self.current_volumes = await self.generate_volumes(
             self.gen_config.volume_count,
             self.current_intent,
@@ -318,6 +283,7 @@ class WebNovelGPT(BaseModel):
 
         return novel
 
+    @save_checkpoint("novel")
     async def _resume_generation(self, checkpoint: Dict) -> Novel:
         """从检查点恢复小说生成"""
         intent = NovelIntent(**checkpoint["intent"])

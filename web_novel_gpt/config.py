@@ -114,6 +114,20 @@ class Config:
 # 实例化配置对象
 config = Config()
 
+
+class WebNovelGenerationConfig(BaseModel):
+    """Web novel generation configuration."""
+
+    section_word_count: int = Field(
+        default_factory=lambda: config.novel.section_word_count
+    )
+    volume_count: int = Field(default_factory=lambda: config.novel.volume_count)
+    chapter_count_per_volume: int = Field(
+        default_factory=lambda: config.novel.chapter_count_per_volume
+    )
+    workspace: str = Field(default_factory=lambda: config.novel.workspace)
+
+
 # 示例使用
 if __name__ == "__main__":
     # LLM配置访问

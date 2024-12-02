@@ -46,26 +46,37 @@ def save_checkpoint(checkpoint_type: str):
 
                 if self.current_novel_id:
                     if checkpoint_type == "volume":
-                        checkpoint_data = {"current_volume": result.model_dump()}
-                    elif checkpoint_type == "novel":
-                        checkpoint_data = result.model_dump()
-                    else:
                         checkpoint_data = {
-                            "intent": self.current_intent.model_dump()
-                            if hasattr(self, "current_intent")
+                            "intent": kwargs.get("intent").model_dump()
+                            if "intent" in kwargs
                             else None,
-                            "rough_outline": self.current_rough_outline
-                            if hasattr(self, "current_rough_outline")
-                            else None,
-                            "volumes": [v.model_dump() for v in self.current_volumes]
-                            if hasattr(self, "current_volumes")
-                            else [],
+                            "rough_outline": kwargs.get("rough_outline"),
+                            "volumes": [
+                                v.model_dump()
+                                for v in getattr(self, "current_volumes", [])
+                            ],
                             "current_volume": result.model_dump() if result else None,
                         }
+                        self.novel_saver.save_checkpoint(
+                            self.current_novel_id, checkpoint_data
+                        )
+                    elif checkpoint_type == "chapter":
+                        # 从kwargs中获取volume_number和chapter_number
+                        volume_number = kwargs.get("volume_number")
+                        chapter_number = kwargs.get("designated_chapter")
+                        if volume_number and chapter_number:
+                            self.novel_saver.save_chapter(
+                                self.current_novel_id,
+                                volume_number,
+                                chapter_number,
+                                result,
+                            )
+                    elif checkpoint_type == "novel":
+                        checkpoint_data = result.model_dump()
+                        self.novel_saver.save_checkpoint(
+                            self.current_novel_id, checkpoint_data
+                        )
 
-                    self.novel_saver.save_checkpoint(
-                        self.current_novel_id, checkpoint_data
-                    )
                     logger.info(
                         f"Saved {checkpoint_type} checkpoint for novel {self.current_novel_id}"
                     )

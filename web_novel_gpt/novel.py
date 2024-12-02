@@ -1,5 +1,4 @@
 import json
-import os
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -56,78 +55,65 @@ class NovelSaver(BaseModel):
             raise ValueError(f"Base directory {self.base_dir} does not exist")
         return self
 
-    def _get_novel_dir(self, novel_id: str) -> str:
-        """Get or create the novel-specific directory."""
-        novel_dir = os.path.join(self.base_dir, novel_id)
-        os.makedirs(novel_dir, exist_ok=True)
-        return novel_dir
-
-    def _get_chapters_dir(self, novel_id: str) -> str:
-        """Get or create the chapters directory for a novel."""
-        chapters_dir = os.path.join(self._get_novel_dir(novel_id), "chapters")
-        os.makedirs(chapters_dir, exist_ok=True)
-        return chapters_dir
-
-    def _get_checkpoints_dir(self, novel_id: str) -> str:
-        """Get or create the checkpoints directory for a novel."""
-        checkpoints_dir = os.path.join(self._get_novel_dir(novel_id), "checkpoints")
-        os.makedirs(checkpoints_dir, exist_ok=True)
-        return checkpoints_dir
-
-    def _get_checkpoint_path(self, novel_id: str) -> str:
-        """Get the full path for a checkpoint file."""
-        return os.path.join(self._get_checkpoints_dir(novel_id), "checkpoint.json")
+    def _ensure_dirs(self, novel_id: str) -> Dict[str, Path]:
+        """Ensure all required directories exist and return their paths."""
+        novel_dir = Path(self.base_dir) / novel_id
+        dirs = {
+            "novel": novel_dir,
+            "novel_content": novel_dir / "novel",
+            "checkpoints": novel_dir / "checkpoints",
+        }
+        for path in dirs.values():
+            path.mkdir(parents=True, exist_ok=True)
+        return dirs
 
     def save_checkpoint(self, novel_id: str, novel_data: Dict) -> None:
-        """Save novel generation checkpoint in organized directory structure."""
-        checkpoint_path = self._get_checkpoint_path(novel_id)
+        """Save novel generation checkpoint."""
+        checkpoint_path = self._ensure_dirs(novel_id)["checkpoints"] / "checkpoint.json"
 
-        # Convert Pydantic models to dict recursively
-        def convert_to_dict(data):
+        def to_dict(data):
             if isinstance(data, BaseModel):
                 return data.model_dump()
             elif isinstance(data, dict):
-                return {k: convert_to_dict(v) for k, v in data.items()}
+                return {k: to_dict(v) for k, v in data.items()}
             elif isinstance(data, list):
-                return [convert_to_dict(item) for item in data]
+                return [to_dict(item) for item in data]
             return data
 
-        novel_data = convert_to_dict(novel_data)
-
         try:
-            with open(checkpoint_path, "w", encoding="utf-8") as f:
-                json.dump(novel_data, f, ensure_ascii=False, indent=2)
+            checkpoint_path.write_text(
+                json.dumps(to_dict(novel_data), ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
         except Exception as e:
-            print(f"Error saving checkpoint: {str(e)}")
-            raise
+            raise RuntimeError(f"Failed to save checkpoint: {e}") from e
 
     def save_chapter(
         self, novel_id: str, volume_num: int, chapter_num: int, content: str
     ) -> None:
-        """Save individual chapter content in organized directory structure."""
-        chapter_dir = self._get_chapters_dir(novel_id)
-        volume_dir = os.path.join(chapter_dir, f"volume_{volume_num}")
-        os.makedirs(volume_dir, exist_ok=True)
+        """Save individual chapter content."""
+        volume_dir = (
+            self._ensure_dirs(novel_id)["novel_content"] / f"volume_{volume_num}"
+        )
+        volume_dir.mkdir(exist_ok=True)
 
-        chapter_path = os.path.join(volume_dir, f"chapter_{chapter_num}.txt")
+        chapter_path = volume_dir / f"chapter_{chapter_num}.txt"
         try:
-            content_to_save = (
+            content_str = (
                 content.model_dump() if isinstance(content, BaseModel) else str(content)
             )
-            with open(chapter_path, "w", encoding="utf-8") as f:
-                f.write(content_to_save)
+            chapter_path.write_text(content_str, encoding="utf-8")
         except Exception as e:
-            print(f"Error saving chapter: {str(e)}")
-            raise
+            raise RuntimeError(f"Failed to save chapter: {e}") from e
 
     def load_checkpoint(self, novel_id: str) -> Optional[Dict]:
-        """Load existing checkpoint from organized directory structure."""
-        checkpoint_path = self._get_checkpoint_path(novel_id)
+        """Load existing checkpoint if available."""
+        checkpoint_path = self._ensure_dirs(novel_id)["checkpoints"] / "checkpoint.json"
         try:
-            if os.path.exists(checkpoint_path):
-                with open(checkpoint_path, "r", encoding="utf-8") as f:
-                    return json.load(f)
+            return (
+                json.loads(checkpoint_path.read_text(encoding="utf-8"))
+                if checkpoint_path.exists()
+                else None
+            )
         except Exception as e:
-            print(f"Error loading checkpoint: {str(e)}")
-            return None
-        return None
+            raise RuntimeError(f"Failed to load checkpoint: {e}") from e

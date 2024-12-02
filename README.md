@@ -42,10 +42,10 @@ from web_novel_gpt.logger import logger
 
 
 async def main():
-    novel_generator = WebNovelGPT()
+    web_novel_gpt = WebNovelGPT()
     user_input = "普通上班族意外获得系统，开始了自己的职场逆袭之路。"
 
-    novel = await novel_generator.generate_novel(user_input=user_input)
+    novel = await web_novel_gpt.generate_novel(user_input=user_input)
     logger.info(f"Generated novel: \n{novel}")
 
 
@@ -63,10 +63,10 @@ from web_novel_gpt.logger import logger
 
 
 async def main():
-    novel_generator = WebNovelGPT()
+    web_novel_gpt = WebNovelGPT()
     user_input = "普通上班族意外获得系统，开始了自己的职场逆袭之路。"
 
-    novel = await novel_generator.generate_novel(user_input=user_input, resume_novel_id="your_novel_id")
+    novel = await web_novel_gpt.generate_novel(user_input=user_input, resume_novel_id="your_novel_id")
     logger.info(f"Generated novel: \n{novel}")
 
 
