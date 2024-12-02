@@ -28,7 +28,7 @@ def json_parse(response: str) -> str:
     return response
 
 
-def parse_intent(response: str) -> Tuple[str, str, int, int]:
+def parse_intent(response: str) -> Tuple[str, str, str]:
     """
     Parse intent analysis response and extract components.
 
@@ -41,8 +41,7 @@ def parse_intent(response: str) -> Tuple[str, str, int, int]:
     intent = json_parse(response)
     intent_json = json.loads(intent)
     return (
+        intent_json.get("name"),
         intent_json.get("description"),
         intent_json.get("genre"),
-        intent_json.get("word_count"),
-        intent_json.get("volume_count"),
     )

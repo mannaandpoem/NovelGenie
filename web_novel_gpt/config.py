@@ -18,8 +18,8 @@ class LLMSettings(BaseModel):
 class NovelSettings(BaseModel):
     """小说生成相关配置"""
 
-    volumes_num: int = Field(1, description="卷数")
-    chapter_num: int = Field(3, description="每卷章节数")
+    volume_count: int = Field(1, description="卷数")
+    chapter_count_per_volume: int = Field(3, description="每卷章节数")
     section_word_count: int = Field(1000, description="每节字数")
     workspace: str = Field("workspace", description="工作目录")
 
@@ -53,7 +53,8 @@ class Config:
                     self._load_initial_config()
                     self._initialized = True
 
-    def _get_project_root(self) -> str:
+    @staticmethod
+    def _get_project_root() -> str:
         """获取项目根目录"""
         return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -86,7 +87,7 @@ class Config:
                 "temperature": raw_config.get("llm", {}).get("temperature", 0.7),
             },
             "novel": {
-                "volumes_num": raw_config.get("novel", {}).get("volumes_num", 1),
+                "volume_count": raw_config.get("novel", {}).get("volume_count", 1),
                 "section_word_count": raw_config.get("novel", {}).get(
                     "section_word_count", 1000
                 ),
@@ -117,5 +118,5 @@ if __name__ == "__main__":
     print(f"Max Tokens: {config.llm.max_tokens}")
 
     # 小说配置访问
-    print(f"Number of Volumes: {config.novel.volumes_num}")
+    print(f"Number of Volumes: {config.novel.volume_count}")
     print(f"Section Word Count: {config.novel.section_word_count}")

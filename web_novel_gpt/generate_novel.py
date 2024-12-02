@@ -26,8 +26,9 @@ class WebNovelGenerationConfig(BaseModel):
     section_word_count: int = Field(
         default_factory=lambda: config.novel.section_word_count
     )
-    volumes_num: int = Field(default_factory=lambda: config.novel.volumes_num)
-    chapter_num: int = Field(default_factory=lambda: config.novel.chapter_num)
+    volume_count: int = Field(default_factory=lambda: config.novel.volume_count)
+    chapter_count_per_volume: int = Field(default_factory=lambda: config.novel.chapter_count_per_volume)
+    workspace: str = Field(default_factory=lambda: config.novel.workspace)
 
 
 class WebNovelGPT(BaseModel):
@@ -54,12 +55,11 @@ class WebNovelGPT(BaseModel):
         """Analyze user input to extract story details."""
         prompt = INTENT_ANALYZER_PROMPT.format(user_input=user_input)
         response = await self.llm.ask(prompt)
-        description, genre, word_count, volume_count = parse_intent(response)
+        name, description, genre = parse_intent(response)
         return NovelIntent(
+            name=name,
             description=description,
             genre=genre,
-            word_count=word_count,
-            volume_count=volume_count,
         )
 
     async def generate_rough_outline(self, user_input: str, intent: NovelIntent) -> str:
@@ -68,8 +68,7 @@ class WebNovelGPT(BaseModel):
             user_input=user_input,
             genre=intent.genre,
             description=intent.description,
-            word_count=intent.word_count,
-            volume_count=intent.volume_count,
+            volume_count=self.gen_config.volume_count,
         )
         return await self.llm.ask(prompt)
 
@@ -78,14 +77,14 @@ class WebNovelGPT(BaseModel):
         volume_number: int,
         rough_outline: str,
         detailed_outline: str,
-        chapter_num: int,
+        chapter_count_per_volume: int,
     ) -> str:
         """Generate summary of detailed outline."""
         prompt = DETAILED_OUTLINE_SUMMARY_PROMPT.format(
             volume_number=volume_number,
             rough_outline=rough_outline,
             detailed_outline=detailed_outline,
-            chapter_num=chapter_num,
+            chapter_count_per_volume=chapter_count_per_volume,
         )
         return await self.llm.ask(prompt)
 
@@ -118,26 +117,24 @@ class WebNovelGPT(BaseModel):
         designated_chapter: int,
         detailed_outline: str,
         rough_outline: str,
-        section_word_count: Optional[int] = None,
         chapters: Optional[List[str]] = None,
     ) -> str:
         """Generate a single chapter."""
-        section_word_count = section_word_count or self.gen_config.section_word_count
         chapters = chapters or []
 
         prompt = CHAPTER_GENERATOR_PROMPT.format(
             designated_chapter=designated_chapter,
             rough_outline=rough_outline,
             detailed_outline=detailed_outline,
-            section_word_count=section_word_count,
+            section_word_count=self.gen_config.section_word_count,
             chapters="\n\n".join(chapters),
         )
         return await self.llm.ask(prompt)
 
-    async def _optimize_chapter(self, chapter: str, section_word_count: int) -> str:
+    async def _optimize_chapter(self, chapter: str) -> str:
         """Optimize a single chapter."""
         prompt = CONTENT_OPTIMIZER_PROMPT.format(
-            chapter_content=chapter, section_word_count=section_word_count
+            chapter_content=chapter, section_word_count=self.gen_config.section_word_count,
         )
         return await self.llm.ask(prompt)
 
@@ -146,16 +143,14 @@ class WebNovelGPT(BaseModel):
         volume_number: int,
         description: str,
         rough_outline: str,
-        section_word_count: Optional[int] = None,
         prev_volume_summary: Optional[str] = None,
     ) -> str:
         """Generate detailed outline for a volume."""
-        section_word_count = section_word_count or self.gen_config.section_word_count
         prompt = DETAILED_OUTLINE_GENERATOR_PROMPT.format(
             designated_volume=volume_number,
             description=description,
             rough_outline=rough_outline,
-            section_word_count=section_word_count,
+            section_word_count=self.gen_config.section_word_count,
             prev_volume_summary=prev_volume_summary or "This is the first volume.",
         )
         return await self.llm.ask(prompt)
@@ -165,20 +160,17 @@ class WebNovelGPT(BaseModel):
         volume_number: int,
         intent: NovelIntent,
         rough_outline: str,
-        section_word_count: Optional[int] = None,
         prev_volume_summary: Optional[str] = None,
         need_optimization: bool = False,
-        chapter_num: int = 1,
+        chapter_count_per_volume: int = 1,
     ) -> NovelVolume:
         """Generate a complete volume of the novel."""
-        section_word_count = section_word_count or self.gen_config.section_word_count
 
         # Generate detailed outline
         detailed_outline = await self.generate_detailed_outline(
             volume_number=volume_number,
             description=intent.description,
             rough_outline=rough_outline,
-            section_word_count=section_word_count,
             prev_volume_summary=prev_volume_summary,
         )
 
@@ -187,7 +179,7 @@ class WebNovelGPT(BaseModel):
             volume_number=volume_number,
             rough_outline=rough_outline,
             detailed_outline=detailed_outline,
-            chapter_num=chapter_num,
+            chapter_count_per_volume=chapter_count_per_volume,
         )
 
         # FIXME: Generate chapters
@@ -212,12 +204,11 @@ class WebNovelGPT(BaseModel):
                     designated_chapter=i,
                     detailed_outline=chapter_outline,
                     rough_outline=rough_outline,
-                    section_word_count=section_word_count,
                     chapters=chapters,
                 )
 
                 if need_optimization:
-                    chapter = await self._optimize_chapter(chapter, section_word_count)
+                    chapter = await self._optimize_chapter(chapter)
 
                 chapters.append(chapter)
                 volume.chapters = chapters
@@ -247,25 +238,22 @@ class WebNovelGPT(BaseModel):
 
     async def generate_volumes(
         self,
-        volumes_num: int,
+        volume_count: int,
         intent: NovelIntent,
         rough_outline: str,
-        section_word_count: Optional[int] = None,
         prev_volume_summary: Optional[str] = None,
     ) -> List[NovelVolume]:
         """Generate volumes for the novel."""
-        section_word_count = section_word_count or self.gen_config.section_word_count
         volumes: List[NovelVolume] = []
         current_summary = prev_volume_summary
 
-        for i in range(volumes_num):
+        for i in range(volume_count):
             volume = await self.generate_volume(
                 volume_number=i + 1,
                 intent=intent,
                 rough_outline=rough_outline,
-                section_word_count=section_word_count,
                 prev_volume_summary=current_summary,
-                chapter_num=self.gen_config.chapter_num,
+                chapter_count_per_volume=self.gen_config.chapter_count_per_volume,
             )
             volumes.append(volume)
             current_summary = volume.outline_summary
@@ -286,23 +274,16 @@ class WebNovelGPT(BaseModel):
         self,
         user_input: str,
         genre: Optional[str] = None,
-        section_word_count: Optional[int] = None,
-        volumes_num: Optional[int] = None,
         resume_novel_id: Optional[str] = None,
     ) -> dict | Novel:
         """Generate complete novel from user input."""
-        section_word_count = section_word_count or self.gen_config.section_word_count
-        volumes_num = volumes_num or self.gen_config.volumes_num
-
         # Try to resume from checkpoint
         if resume_novel_id:
             self.current_novel_id = resume_novel_id
             checkpoint = self.novel_saver.load_checkpoint(resume_novel_id)
             if checkpoint:
                 print(f"Resuming from checkpoint for novel {resume_novel_id}")
-                return await self._resume_generation(
-                    checkpoint, section_word_count, volumes_num
-                )
+                return await self._resume_generation(checkpoint)
 
         # Start new novel generation
         intent = await self.analyze_intent(user_input)
@@ -326,7 +307,9 @@ class WebNovelGPT(BaseModel):
 
         # 按卷生成内容
         volumes = await self.generate_volumes(
-            volumes_num, intent, rough_outline, section_word_count
+            self.gen_config.volume_count,
+            intent,
+            rough_outline,
         )
 
         novel = Novel(
@@ -341,9 +324,7 @@ class WebNovelGPT(BaseModel):
 
         return novel
 
-    async def _resume_generation(
-        self, checkpoint: Dict, section_word_count: int, volumes_num: int
-    ) -> Dict:
+    async def _resume_generation(self, checkpoint: Dict) -> Dict:
         """从检查点恢复小说生成"""
         intent = NovelIntent(**checkpoint["intent"])
         rough_outline = checkpoint["rough_outline"]
@@ -354,10 +335,9 @@ class WebNovelGPT(BaseModel):
         prev_volume_summary = volumes[-1].outline_summary if volumes else None
 
         volumes = await self.generate_volumes(
-            volumes_num - current_volume,
+            self.gen_config.volume_count - current_volume,
             intent,
             rough_outline,
-            section_word_count,
             prev_volume_summary,
         )
 

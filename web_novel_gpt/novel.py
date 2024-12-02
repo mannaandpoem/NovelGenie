@@ -9,17 +9,9 @@ from web_novel_gpt.config import config
 
 class NovelIntent(BaseModel):
     """Novel generation intent model."""
-
+    name: str = Field(..., description="小说名称")
     description: str = Field(..., description="小说的基本描述")
     genre: str = Field(..., description="小说的类型")
-    word_count: int = Field(..., ge=1000, description="预期总字数")
-    volume_count: int = Field(1, ge=1, description="预期卷数")
-
-    @model_validator(mode="after")
-    def validate_word_count(self) -> "NovelIntent":
-        if self.word_count < 1000 * self.volume_count:
-            self.word_count = 1000 * self.volume_count
-        return self
 
 
 class NovelVolume(BaseModel):

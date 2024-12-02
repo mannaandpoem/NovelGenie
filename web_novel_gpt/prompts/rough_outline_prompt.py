@@ -12,9 +12,6 @@ ROUGH_OUTLINE_GENERATOR_PROMPT = """
 ## 网文描述
 {description}
 
-## 总字数要求
-{word_count}
-
 ## 总卷数要求
 {volume_count}
 

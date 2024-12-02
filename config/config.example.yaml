@@ -6,6 +6,7 @@ llm:
   temperature: 0.7  # temperature for sampling
 
 novel:
-  num_volumes: 1  # number of volumes to use
+  volume_count: 1  # number of volumes to use
+  chapter_count_per_volume: 10  # number of chapters per volume
   section_word_count: 1000  # word count for each section
   workspace: "workspace"  # novel storage directory

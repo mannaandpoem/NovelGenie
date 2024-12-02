@@ -136,7 +136,7 @@ DETAILED_OUTLINE_SUMMARY_PROMPT = """
 
 # 用户输入
 ## 指定章节范围
-{chapter_num}
+{chapter_count_per_volume}
 
 ## 网文细纲：第{volume_number}卷
 {detailed_outline}
