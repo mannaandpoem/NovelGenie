@@ -11,7 +11,7 @@ INTENT_ANALYZER_PROMPT = """
 请严格按照以下 JSON 格式输出：
 ```json
 {{
-  "name": "[网文名称]",
+  "title": "[网文名称]",
   "description": "[扩展后的网文描述]",
   "genre": "[网文类型]",
 }}

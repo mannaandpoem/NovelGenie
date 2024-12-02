@@ -1,27 +1,39 @@
 repos:
   - repo: https://github.com/psf/black
-    rev: 23.1.0  # 确保是稳定版本
+    rev: 23.1.0
     hooks:
       - id: black
-
-  - repo: https://github.com/pre-commit/mirrors-isort
-    rev: v5.10.1  # 版本选择稳定的可用版本
-    hooks:
-      - id: isort
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.4.0
     hooks:
-      - id: trailing-whitespace  # 清理行尾多余空格
-      - id: end-of-file-fixer    # 修复文件末尾缺失的空行
-      - id: check-yaml           # 检查 YAML 文件格式
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
 
   - repo: https://github.com/PyCQA/autoflake
-    rev: v2.0.1  # 使用稳定的 autoflake 版本
+    rev: v2.0.1
     hooks:
       - id: autoflake
-        args:
-          - --remove-all-unused-imports  # 去除所有无用的 import
-          - --remove-unused-variables   # 可选：移除未使用的变量
-          - --expand-star-imports       # 可选：展开通配符 import
-        additional_dependencies: ["autoflake==2.0.1"]  # 确保版本一致
+        args: [
+          --remove-all-unused-imports,
+          --ignore-init-module-imports,  # 忽略 __init__.py 中的导入
+          --expand-star-imports,
+          --remove-duplicate-keys,
+          --remove-unused-variables,
+          --recursive,
+          --in-place,
+          --exclude=__init__.py,  # 排除 __init__.py 文件
+        ]
+        files: \.py$  # 只处理 Python 文件
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.12.0
+    hooks:
+      - id: isort
+        args: [
+          "--profile", "black",  # 使用 black 兼容的配置
+          "--filter-files",
+          "--lines-after-imports=2",
+        ]

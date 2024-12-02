@@ -41,7 +41,7 @@ def parse_intent(response: str) -> Tuple[str, str, str]:
     intent = json_parse(response)
     intent_json = json.loads(intent)
     return (
-        intent_json.get("name"),
+        intent_json.get("title"),
         intent_json.get("description"),
         intent_json.get("genre"),
     )

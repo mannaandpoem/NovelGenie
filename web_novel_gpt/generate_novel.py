@@ -8,15 +8,14 @@ from web_novel_gpt.config import config
 from web_novel_gpt.cost import Cost
 from web_novel_gpt.llm import LLM
 from web_novel_gpt.novel import Novel, NovelIntent, NovelSaver, NovelVolume
-from web_novel_gpt.prompts.chapter_generator_prompt import \
-    CHAPTER_GENERATOR_PROMPT
-from web_novel_gpt.prompts.content_optimizer_prompt import \
-    CONTENT_OPTIMIZER_PROMPT
+from web_novel_gpt.prompts.chapter_generator_prompt import CHAPTER_GENERATOR_PROMPT
+from web_novel_gpt.prompts.content_optimizer_prompt import CONTENT_OPTIMIZER_PROMPT
 from web_novel_gpt.prompts.detail_outline_generator_prompt import (
-    DETAILED_OUTLINE_GENERATOR_PROMPT, DETAILED_OUTLINE_SUMMARY_PROMPT)
+    DETAILED_OUTLINE_GENERATOR_PROMPT,
+    DETAILED_OUTLINE_SUMMARY_PROMPT,
+)
 from web_novel_gpt.prompts.intent_analyzer_prompt import INTENT_ANALYZER_PROMPT
-from web_novel_gpt.prompts.rough_outline_prompt import \
-    ROUGH_OUTLINE_GENERATOR_PROMPT
+from web_novel_gpt.prompts.rough_outline_prompt import ROUGH_OUTLINE_GENERATOR_PROMPT
 from web_novel_gpt.utils import parse_intent
 
 
@@ -27,7 +26,9 @@ class WebNovelGenerationConfig(BaseModel):
         default_factory=lambda: config.novel.section_word_count
     )
     volume_count: int = Field(default_factory=lambda: config.novel.volume_count)
-    chapter_count_per_volume: int = Field(default_factory=lambda: config.novel.chapter_count_per_volume)
+    chapter_count_per_volume: int = Field(
+        default_factory=lambda: config.novel.chapter_count_per_volume
+    )
     workspace: str = Field(default_factory=lambda: config.novel.workspace)
 
 
@@ -55,9 +56,9 @@ class WebNovelGPT(BaseModel):
         """Analyze user input to extract story details."""
         prompt = INTENT_ANALYZER_PROMPT.format(user_input=user_input)
         response = await self.llm.ask(prompt)
-        name, description, genre = parse_intent(response)
+        title, description, genre = parse_intent(response)
         return NovelIntent(
-            name=name,
+            title=title,
             description=description,
             genre=genre,
         )
@@ -66,6 +67,7 @@ class WebNovelGPT(BaseModel):
         """Generate rough outline based on story intent."""
         prompt = ROUGH_OUTLINE_GENERATOR_PROMPT.format(
             user_input=user_input,
+            title=intent.title,
             genre=intent.genre,
             description=intent.description,
             volume_count=self.gen_config.volume_count,
@@ -77,14 +79,12 @@ class WebNovelGPT(BaseModel):
         volume_number: int,
         rough_outline: str,
         detailed_outline: str,
-        chapter_count_per_volume: int,
     ) -> str:
         """Generate summary of detailed outline."""
         prompt = DETAILED_OUTLINE_SUMMARY_PROMPT.format(
             volume_number=volume_number,
             rough_outline=rough_outline,
             detailed_outline=detailed_outline,
-            chapter_count_per_volume=chapter_count_per_volume,
         )
         return await self.llm.ask(prompt)
 
@@ -134,7 +134,8 @@ class WebNovelGPT(BaseModel):
     async def _optimize_chapter(self, chapter: str) -> str:
         """Optimize a single chapter."""
         prompt = CONTENT_OPTIMIZER_PROMPT.format(
-            chapter_content=chapter, section_word_count=self.gen_config.section_word_count,
+            chapter_content=chapter,
+            section_word_count=self.gen_config.section_word_count,
         )
         return await self.llm.ask(prompt)
 
@@ -146,12 +147,17 @@ class WebNovelGPT(BaseModel):
         prev_volume_summary: Optional[str] = None,
     ) -> str:
         """Generate detailed outline for a volume."""
+        chapter_count_per_volume = self.gen_config.chapter_count_per_volume
+        start_chapter_count = (
+            volume_number * chapter_count_per_volume - chapter_count_per_volume + 1
+        )
         prompt = DETAILED_OUTLINE_GENERATOR_PROMPT.format(
             designated_volume=volume_number,
             description=description,
             rough_outline=rough_outline,
             section_word_count=self.gen_config.section_word_count,
-            prev_volume_summary=prev_volume_summary or "This is the first volume.",
+            prev_volume_summary=prev_volume_summary or "无",
+            chapter_range=f"第{volume_number}卷第{start_chapter_count}-{chapter_count_per_volume}章",
         )
         return await self.llm.ask(prompt)
 
@@ -179,7 +185,6 @@ class WebNovelGPT(BaseModel):
             volume_number=volume_number,
             rough_outline=rough_outline,
             detailed_outline=detailed_outline,
-            chapter_count_per_volume=chapter_count_per_volume,
         )
 
         # FIXME: Generate chapters

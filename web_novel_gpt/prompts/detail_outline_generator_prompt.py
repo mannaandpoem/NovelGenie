@@ -6,15 +6,18 @@ DETAILED_OUTLINE_GENERATOR_PROMPT = """
 ## 指定分卷
 {designated_volume}
 
+## 指定章节范围
+{chapter_range}
+
 ## 网文描述
 {description}
 要求每章内容字数不少于{section_word_count}字。
 
-## 网文粗纲
-{rough_outline}
-
 ## 前几卷细纲总结
 {prev_volume_summary}
+
+## 网文粗纲
+{rough_outline}
 
 # 输出格式
 # 第x章
@@ -33,7 +36,7 @@ DETAILED_OUTLINE_GENERATOR_PROMPT = """
 
 2. 篇章定位
    - 所属卷册与阶段
-   - 章节总字数范围(不少于2000字)
+   - 章节总字数范围(不少于{section_word_count}字)
    - 本章在剧情线上的定位
    - 需要推进的主要剧情方向
 
@@ -135,9 +138,6 @@ DETAILED_OUTLINE_SUMMARY_PROMPT = """
 根据用户输入的网文粗纲和网文细纲生成对应的细纲总结：
 
 # 用户输入
-## 指定章节范围
-{chapter_count_per_volume}
-
 ## 网文细纲：第{volume_number}卷
 {detailed_outline}
 

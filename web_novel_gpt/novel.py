@@ -9,7 +9,8 @@ from web_novel_gpt.config import config
 
 class NovelIntent(BaseModel):
     """Novel generation intent model."""
-    name: str = Field(..., description="小说名称")
+
+    title: str = Field(..., description="小说名称")
     description: str = Field(..., description="小说的基本描述")
     genre: str = Field(..., description="小说的类型")
 
