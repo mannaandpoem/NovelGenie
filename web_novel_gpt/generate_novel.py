@@ -9,13 +9,7 @@ from web_novel_gpt.cost import Cost
 from web_novel_gpt.exceptions import ChapterGenerationError
 from web_novel_gpt.llm import LLM
 from web_novel_gpt.logger import logger
-from web_novel_gpt.novel import (
-    Novel,
-    NovelIntent,
-    NovelSaver,
-    NovelVolume,
-    save_checkpoint,
-)
+from web_novel_gpt.novel import Novel, NovelIntent, NovelSaver, NovelVolume
 from web_novel_gpt.prompts.chapter_generator_prompt import CHAPTER_GENERATOR_PROMPT
 from web_novel_gpt.prompts.content_optimizer_prompt import CONTENT_OPTIMIZER_PROMPT
 from web_novel_gpt.prompts.detail_outline_generator_prompt import (
@@ -24,7 +18,7 @@ from web_novel_gpt.prompts.detail_outline_generator_prompt import (
 )
 from web_novel_gpt.prompts.intent_analyzer_prompt import INTENT_ANALYZER_PROMPT
 from web_novel_gpt.prompts.rough_outline_prompt import ROUGH_OUTLINE_GENERATOR_PROMPT
-from web_novel_gpt.utils import parse_intent
+from web_novel_gpt.utils import parse_intent, save_checkpoint
 
 
 class WebNovelGenerationConfig(BaseModel):
