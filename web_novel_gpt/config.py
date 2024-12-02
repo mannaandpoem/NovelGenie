@@ -5,6 +5,14 @@ import yaml
 from pydantic import BaseModel, Field
 
 
+def get_project_root() -> str:
+    """获取项目根目录"""
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+WebNovelGPT_ROOT = get_project_root()
+
+
 class LLMSettings(BaseModel):
     """LLM相关配置"""
 
@@ -54,13 +62,9 @@ class Config:
                     self._initialized = True
 
     @staticmethod
-    def _get_project_root() -> str:
-        """获取项目根目录"""
-        return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-    def _get_config_path(self) -> str:
+    def _get_config_path() -> str:
         """获取配置文件路径"""
-        root = self._get_project_root()
+        root = WebNovelGPT_ROOT
         config_path = os.path.join(root, "config", "config.yaml")
         if not os.path.exists(config_path):
             config_path = os.path.join(root, "config", "config.example.yaml")
