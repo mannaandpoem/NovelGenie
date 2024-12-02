@@ -6,8 +6,16 @@ from pydantic import BaseModel, Field
 
 from web_novel_gpt.config import config
 from web_novel_gpt.cost import Cost
+from web_novel_gpt.exceptions import ChapterGenerationError
 from web_novel_gpt.llm import LLM
-from web_novel_gpt.novel import Novel, NovelIntent, NovelSaver, NovelVolume
+from web_novel_gpt.logger import logger
+from web_novel_gpt.novel import (
+    Novel,
+    NovelIntent,
+    NovelSaver,
+    NovelVolume,
+    save_checkpoint,
+)
 from web_novel_gpt.prompts.chapter_generator_prompt import CHAPTER_GENERATOR_PROMPT
 from web_novel_gpt.prompts.content_optimizer_prompt import CONTENT_OPTIMIZER_PROMPT
 from web_novel_gpt.prompts.detail_outline_generator_prompt import (
@@ -42,6 +50,9 @@ class WebNovelGPT(BaseModel):
         default_factory=WebNovelGenerationConfig
     )
     current_novel_id: Optional[str] = Field(None, exclude=True)
+    current_intent: Optional[NovelIntent] = Field(None, exclude=True)
+    current_rough_outline: Optional[str] = Field(None, exclude=True)
+    current_volumes: List[NovelVolume] = Field(default_factory=list, exclude=True)
 
     class Config:
         arbitrary_types_allowed = True
@@ -54,6 +65,7 @@ class WebNovelGPT(BaseModel):
 
     async def analyze_intent(self, user_input: str) -> NovelIntent:
         """Analyze user input to extract story details."""
+        logger.info("Analyzing user input to extract story details")
         prompt = INTENT_ANALYZER_PROMPT.format(user_input=user_input)
         response = await self.llm.ask(prompt)
         title, description, genre = parse_intent(response)
@@ -65,6 +77,7 @@ class WebNovelGPT(BaseModel):
 
     async def generate_rough_outline(self, user_input: str, intent: NovelIntent) -> str:
         """Generate rough outline based on story intent."""
+        logger.info(f"Generating rough outline for novel '{intent.title}'")
         prompt = ROUGH_OUTLINE_GENERATOR_PROMPT.format(
             user_input=user_input,
             title=intent.title,
@@ -161,6 +174,7 @@ class WebNovelGPT(BaseModel):
         )
         return await self.llm.ask(prompt)
 
+    @save_checkpoint("volume")
     async def generate_volume(
         self,
         volume_number: int,
@@ -171,6 +185,7 @@ class WebNovelGPT(BaseModel):
         chapter_count_per_volume: int = 1,
     ) -> NovelVolume:
         """Generate a complete volume of the novel."""
+        logger.info(f"Starting generation of volume {volume_number}")
 
         # Generate detailed outline
         detailed_outline = await self.generate_detailed_outline(
@@ -197,47 +212,34 @@ class WebNovelGPT(BaseModel):
             chapters=chapters,
         )
 
-        # Save progress
-        if self.current_novel_id:
-            self.novel_saver.save_checkpoint(
-                self.current_novel_id, {"current_volume": volume.model_dump()}
-            )
-
         for i, chapter_outline in enumerate(chapter_outlines, 1):
             try:
+                logger.info(f"Generating chapter {i} in volume {volume_number}")
                 chapter = await self.generate_chapter(
                     designated_chapter=i,
                     detailed_outline=chapter_outline,
                     rough_outline=rough_outline,
                     chapters=chapters,
                 )
-
-                if need_optimization:
-                    chapter = await self._optimize_chapter(chapter)
-
-                chapters.append(chapter)
-                volume.chapters = chapters
-
-                # Save individual chapter
-                if self.current_novel_id:
-                    self.novel_saver.save_chapter(
-                        self.current_novel_id, volume_number, i, chapter
-                    )
-
-                    # Update checkpoint
-                    self.novel_saver.save_checkpoint(
-                        self.current_novel_id, {"current_volume": volume.model_dump()}
-                    )
-
             except Exception as e:
-                print(
-                    f"Error generating chapter {i} in volume {volume_number}: {str(e)}"
+                logger.error(
+                    f"Failed to generate chapter {i} in volume {volume_number}"
                 )
-                if self.current_novel_id:
-                    self.novel_saver.save_checkpoint(
-                        self.current_novel_id, {"current_volume": volume.model_dump()}
-                    )
-                raise
+                raise ChapterGenerationError(
+                    f"Volume {volume_number} Chapter {i}"
+                ) from e
+
+            if need_optimization:
+                chapter = await self._optimize_chapter(chapter)
+
+            chapters.append(chapter)
+            volume.chapters = chapters
+
+            # Save individual chapter
+            if self.current_novel_id:
+                self.novel_saver.save_chapter(
+                    self.current_novel_id, volume_number, i, chapter
+                )
 
         return volume
 
@@ -275,61 +277,56 @@ class WebNovelGPT(BaseModel):
 
         return volumes
 
+    @save_checkpoint("novel")
     async def generate_novel(
         self,
         user_input: str,
         genre: Optional[str] = None,
         resume_novel_id: Optional[str] = None,
-    ) -> dict | Novel:
+    ) -> Novel:
         """Generate complete novel from user input."""
-        # Try to resume from checkpoint
+        # Resume from checkpoint if provided
         if resume_novel_id:
             self.current_novel_id = resume_novel_id
             checkpoint = self.novel_saver.load_checkpoint(resume_novel_id)
             if checkpoint:
-                print(f"Resuming from checkpoint for novel {resume_novel_id}")
+                logger.info(f"Resuming from checkpoint for novel {resume_novel_id}")
                 return await self._resume_generation(checkpoint)
 
-        # Start new novel generation
-        intent = await self.analyze_intent(user_input)
+        logger.info("Starting new novel generation")
+        self.current_intent = await self.analyze_intent(user_input)
         if genre:
-            intent.genre = genre
+            self.current_intent.genre = genre
 
-        # Generate new novel_id
-        self.current_novel_id = self._generate_novel_id(intent.description)
+        self.current_novel_id = self._generate_novel_id(self.current_intent.description)
+        self.current_rough_outline = await self.generate_rough_outline(
+            user_input, self.current_intent
+        )
 
-        # Generate rough outline
-        rough_outline = await self.generate_rough_outline(user_input, intent)
-
-        # Save initial state
         initial_state = {
-            "intent": intent.model_dump(),
-            "rough_outline": rough_outline,
+            "intent": self.current_intent.model_dump(),
+            "rough_outline": self.current_rough_outline,
             "volumes": [],
             "current_volume": None,
         }
         self.novel_saver.save_checkpoint(self.current_novel_id, initial_state)
 
-        # 按卷生成内容
-        volumes = await self.generate_volumes(
+        self.current_volumes = await self.generate_volumes(
             self.gen_config.volume_count,
-            intent,
-            rough_outline,
+            self.current_intent,
+            self.current_rough_outline,
         )
 
         novel = Novel(
-            intent=intent,
-            rough_outline=rough_outline,
-            volumes=volumes,
+            intent=self.current_intent,
+            rough_outline=self.current_rough_outline,
+            volumes=self.current_volumes,
             cost_info=self.cost_tracker.get(),
         )
 
-        # 保存最终小说内容
-        self.novel_saver.save_checkpoint(self.current_novel_id, novel.model_dump())
-
         return novel
 
-    async def _resume_generation(self, checkpoint: Dict) -> Dict:
+    async def _resume_generation(self, checkpoint: Dict) -> Novel:
         """从检查点恢复小说生成"""
         intent = NovelIntent(**checkpoint["intent"])
         rough_outline = checkpoint["rough_outline"]
@@ -353,4 +350,4 @@ class WebNovelGPT(BaseModel):
             cost_info=self.cost_tracker.get(),
         )
 
-        return novel.model_dump()
+        return novel

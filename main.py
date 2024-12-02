@@ -1,5 +1,4 @@
 import asyncio
-import json
 
 from web_novel_gpt.generate_novel import WebNovelGPT
 from web_novel_gpt.logger import logger
