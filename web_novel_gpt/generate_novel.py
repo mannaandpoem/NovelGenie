@@ -176,7 +176,6 @@ class WebNovelGPT(BaseModel):
         rough_outline: str,
         prev_volume_summary: Optional[str] = None,
         need_optimization: bool = False,
-        chapter_count_per_volume: int = 1,
     ) -> NovelVolume:
         """Generate a complete volume of the novel."""
         logger.info(f"Starting generation of volume {volume_number}")
@@ -254,7 +253,6 @@ class WebNovelGPT(BaseModel):
                 intent=intent,
                 rough_outline=rough_outline,
                 prev_volume_summary=current_summary,
-                chapter_count_per_volume=self.gen_config.chapter_count_per_volume,
             )
             volumes.append(volume)
             current_summary = volume.outline_summary
