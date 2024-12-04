@@ -138,11 +138,8 @@ DETAILED_OUTLINE_GENERATOR_PROMPT_V2 = """
 要求每章内容字数不少于{section_word_count}字。
 
 # 用户输入
-## 指定分卷
-{designated_volume}
-
-## 指定章节范围
-{chapter_range}
+## 指定分卷章节
+第{designated_volume}卷：第{designated_chapter}章
 
 ## 网文描述
 {description}
@@ -246,7 +243,7 @@ DETAILED_OUTLINE_SUMMARY_PROMPT = """
 根据用户输入的网文粗纲和网文细纲生成对应的细纲总结：
 
 # 用户输入
-## 网文细纲：第{volume_number}卷
+## 网文细纲：第{volume_num}卷
 {detailed_outline}
 
 ## 网文粗纲

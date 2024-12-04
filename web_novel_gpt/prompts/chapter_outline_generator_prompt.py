@@ -4,11 +4,8 @@ CHAPTER_OUTLINE_GENERATOR_PROMPT = """
 本提示词用于生成网文章节级别的规划纲要，重点关注人物、人物关系及情感发展。
 
 # 输入要求
-## 指定分卷
-{designated_volume}
-
-## 指定章节范围
-{chapter_range}
+## 指定分卷章节
+第 {designated_volume} 卷：第 {designated_chapter} 章
 
 ## 网文描述
 {description}
