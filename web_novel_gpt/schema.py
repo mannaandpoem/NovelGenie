@@ -1,5 +1,4 @@
 import json
-from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -58,7 +57,6 @@ class OutlineBase(BaseModel):
     """Base outline model with common fields."""
 
     outline_type: OutlineType
-    created_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Config:
         from_attributes = True
