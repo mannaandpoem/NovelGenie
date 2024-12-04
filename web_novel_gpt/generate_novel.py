@@ -47,10 +47,10 @@ class WebNovelGPT(BaseModel):
     novel_id: Optional[str] = Field(None, exclude=True)
     intent: Optional[NovelIntent] = Field(None, exclude=True)
 
-    current_volumes: List[NovelVolume] = Field(default_factory=list, exclude=True)
-    current_rough_outline: Optional[RoughOutline] = Field(None, exclude=True)
-    current_chapter_outline: Optional[ChapterOutline] = Field(None, exclude=True)
-    current_detailed_outline: Optional[DetailedOutline] = Field(None, exclude=True)
+    volumes: List[NovelVolume] = Field(default_factory=list, exclude=True)
+    rough_outline: Optional[RoughOutline] = Field(None, exclude=True)
+    chapter_outline: Optional[ChapterOutline] = Field(None, exclude=True)
+    detailed_outline: Optional[DetailedOutline] = Field(None, exclude=True)
 
     current_volume_num: Optional[int] = Field(None, exclude=True)
     current_chapter_num: Optional[int] = Field(None, exclude=True)
@@ -98,10 +98,10 @@ class WebNovelGPT(BaseModel):
             designated_volume=self.current_volume_num,
             designated_chapter=self.current_chapter_num,
             description=self.intent.description,
-            rough_outline=str(self.current_rough_outline),
+            rough_outline=str(self.rough_outline),
             section_word_count=self.generation_config.section_word_count,
             prev_volume_summary=prev_volume_summary,
-            chapter_outline=self.current_chapter_outline,
+            chapter_outline=self.chapter_outline,
         )
         response = await self.llm.ask(prompt)
         return extract_outline(response, OutlineType.DETAILED)
@@ -114,8 +114,8 @@ class WebNovelGPT(BaseModel):
         ]
         prompt = CONTENT_GENERATOR_PROMPT.format(
             designated_chapter=self.current_chapter_num,
-            rough_outline=str(self.current_rough_outline),
-            detailed_outline=self.current_detailed_outline,
+            rough_outline=str(self.rough_outline),
+            detailed_outline=self.detailed_outline,
             section_word_count=self.generation_config.section_word_count,
             chapters="\n\n".join(chapters),
         )
@@ -142,7 +142,7 @@ class WebNovelGPT(BaseModel):
             designated_volume=self.current_volume_num,
             designated_chapter=self.current_chapter_num,
             description=self.intent.description,
-            rough_outline=str(self.current_rough_outline),
+            rough_outline=str(self.rough_outline),
             section_word_count=self.generation_config.section_word_count,
             prev_volume_summary=prev_volume_summary,
         )
@@ -182,16 +182,16 @@ class WebNovelGPT(BaseModel):
     ) -> None:
         """Generate a single chapter including its outlines and content."""
         # Generate chapter outline for current chapter
-        self.current_chapter_outline = await self.generate_chapter_outline(
+        self.chapter_outline = await self.generate_chapter_outline(
             prev_volume_summary=prev_volume_summary
         )
-        volume.chapter_outline = self.current_chapter_outline
+        volume.chapter_outline = self.chapter_outline
 
         # Generate detailed outline for current chapter
-        self.current_detailed_outline = await self.generate_detailed_outline(
+        self.detailed_outline = await self.generate_detailed_outline(
             prev_volume_summary=prev_volume_summary
         )
-        volume.detailed_outline = self.current_detailed_outline
+        volume.detailed_outline = self.detailed_outline
 
         # Generate current chapter
         chapter = await self.generate_chapter(volume.chapters)
@@ -227,14 +227,14 @@ class WebNovelGPT(BaseModel):
             self.intent.genre = genre
 
         self.novel_id = self.generate_novel_id(self.intent.description)
-        self.current_rough_outline = await self.generate_rough_outline(user_input)
+        self.rough_outline = await self.generate_rough_outline(user_input)
 
-        self.current_volumes = await self.generate_volumes()
+        self.volumes = await self.generate_volumes()
 
         novel = Novel(
             intent=self.intent,
-            rough_outline=self.current_rough_outline,
-            volumes=self.current_volumes,
+            rough_outline=self.rough_outline,
+            volumes=self.volumes,
             cost_info=self.cost_tracker.get(),
         )
 
