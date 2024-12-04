@@ -20,7 +20,9 @@ from web_novel_gpt.prompts.detail_outline_generator_prompt import (
 from web_novel_gpt.prompts.intent_analyzer_prompt import INTENT_ANALYZER_PROMPT
 from web_novel_gpt.prompts.rough_outline_prompt import ROUGH_OUTLINE_GENERATOR_PROMPT_V2
 from web_novel_gpt.schema import (
+    Chapter,
     ChapterOutline,
+    CheckpointType,
     DetailedOutline,
     Novel,
     NovelIntent,
@@ -29,12 +31,7 @@ from web_novel_gpt.schema import (
     OutlineType,
     RoughOutline,
 )
-from web_novel_gpt.utils import (
-    extract_content,
-    load_outline_from_dict,
-    parse_intent,
-    save_checkpoint,
-)
+from web_novel_gpt.utils import extract_outline, parse_intent, save_checkpoint
 
 
 class WebNovelGPT(BaseModel):
@@ -43,21 +40,26 @@ class WebNovelGPT(BaseModel):
     llm: LLM = Field(default_factory=LLM)
     cost_tracker: Cost = Field(default_factory=Cost)
     novel_saver: NovelSaver = Field(default_factory=NovelSaver)
-    gen_config: WebNovelGenerationConfig = Field(
+    generation_config: WebNovelGenerationConfig = Field(
         default_factory=WebNovelGenerationConfig
     )
-    current_novel_id: Optional[str] = Field(None, exclude=True)
-    current_intent: Optional[NovelIntent] = Field(None, exclude=True)
+
+    novel_id: Optional[str] = Field(None, exclude=True)
+    intent: Optional[NovelIntent] = Field(None, exclude=True)
+
     current_volumes: List[NovelVolume] = Field(default_factory=list, exclude=True)
     current_rough_outline: Optional[RoughOutline] = Field(None, exclude=True)
     current_chapter_outline: Optional[ChapterOutline] = Field(None, exclude=True)
     current_detailed_outline: Optional[DetailedOutline] = Field(None, exclude=True)
 
+    current_volume_num: Optional[int] = Field(None, exclude=True)
+    current_chapter_num: Optional[int] = Field(None, exclude=True)
+
     class Config:
         arbitrary_types_allowed = True
 
     @staticmethod
-    def _generate_novel_id(description: str) -> str:
+    def generate_novel_id(description: str) -> str:
         """Generate unique novel ID."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         return f"{description[:5]}_{timestamp}"
@@ -74,166 +76,101 @@ class WebNovelGPT(BaseModel):
             genre=genre,
         )
 
-    async def generate_rough_outline(
-        self, user_input: str, intent: Optional[NovelIntent] = None
-    ) -> RoughOutline:
+    async def generate_rough_outline(self, user_input: str) -> RoughOutline:
         """Generate rough outline based on story intent."""
-        logger.info(f"Generating rough outline for novel '{intent.title}'")
+        logger.info(f"Generating rough outline for novel '{self.intent.title}'")
         prompt = ROUGH_OUTLINE_GENERATOR_PROMPT_V2.format(
             user_input=user_input,
-            title=intent.title,
-            genre=intent.genre,
-            description=intent.description,
-            volume_count=self.gen_config.volume_count,
+            title=self.intent.title,
+            genre=self.intent.genre,
+            description=self.intent.description,
+            volume_count=self.generation_config.volume_count,
         )
         response = await self.llm.ask(prompt)
-        return extract_content(response, OutlineType.ROUGH)
-
-    async def generate_detailed_outline_summary(
-        self,
-        volume_number: int,
-        rough_outline: str,
-        detailed_outline: str,
-    ) -> str:
-        """Generate summary of detailed outline."""
-        prompt = DETAILED_OUTLINE_SUMMARY_PROMPT.format(
-            volume_number=volume_number,
-            rough_outline=rough_outline,
-            detailed_outline=detailed_outline,
-        )
-        return await self.llm.ask(prompt)
-
-    @staticmethod
-    def _split_into_chapters(detailed_outline: str) -> List[str]:
-        """
-        Split detailed outline into chapter outlines based on '### 第x章' markers.
-
-        Args:
-            detailed_outline: String containing the full outline with chapter markers
-
-        Returns:
-            List of strings, each containing a chapter's content including its marker
-        """
-        # 使用正则表达式匹配章节标记
-        pattern = r"(?=#\s第[0-9]+章(?:\s|$))"
-
-        # 分割文本
-        chapters = re.split(pattern, detailed_outline)
-
-        # 过滤空章节并验证章节标记
-        return [
-            chapter.strip()
-            for chapter in chapters
-            if chapter.strip() and re.match(r"^#\s第[0-9]+章(?:\s|$)", chapter.strip())
-        ]
+        return extract_outline(response, OutlineType.ROUGH)
 
     async def generate_detailed_outline(
-        self, designated_volume, prev_volume_summary
+        self, prev_volume_summary: Optional[str] = None
     ) -> DetailedOutline:
         """Generate detailed outline for a single chapter."""
-
-        chapter_range = ...
+        # FIXME: rough_outline should be fix
         prompt = DETAILED_OUTLINE_GENERATOR_PROMPT_V2.format(
-            designated_volume=designated_volume,
-            chapter_range=chapter_range,
-            description=self.current_intent.description,
-            section_word_count=self.gen_config.section_word_count,
+            designated_volume=self.current_volume_num,
+            designated_chapter=self.current_chapter_num,
+            description=self.intent.description,
+            rough_outline=str(self.current_rough_outline),
+            section_word_count=self.generation_config.section_word_count,
             prev_volume_summary=prev_volume_summary,
             chapter_outline=self.current_chapter_outline,
         )
         response = await self.llm.ask(prompt)
-        return extract_content(response, OutlineType.DETAILED)
+        return extract_outline(response, OutlineType.DETAILED)
 
-    @save_checkpoint("chapter")
-    async def generate_chapter(
-        self,
-        designated_chapter: int,
-        detailed_outline: str,
-        rough_outline: str,
-        chapters: Optional[List[str]] = None,
-    ) -> str:
+    @save_checkpoint(CheckpointType.CHAPTER)
+    async def generate_chapter(self, existing_chapters: List[Chapter]) -> Chapter:
         """Generate a single chapter."""
-        chapters = chapters or []
-
+        chapters = [
+            f"{chapter.title}\n{chapter.content}" for chapter in existing_chapters
+        ]
         prompt = CONTENT_GENERATOR_PROMPT.format(
-            designated_chapter=designated_chapter,
-            rough_outline=rough_outline,
-            detailed_outline=detailed_outline,
-            section_word_count=self.gen_config.section_word_count,
+            designated_chapter=self.current_chapter_num,
+            rough_outline=str(self.current_rough_outline),
+            detailed_outline=self.current_detailed_outline,
+            section_word_count=self.generation_config.section_word_count,
             chapters="\n\n".join(chapters),
         )
-        return await self.llm.ask(prompt)
+        response = await self.llm.ask(prompt)
+        # Extract chapter title and content
+        title = re.search(r"## 第[0-9]+章 .+", response).group()
+        content = response.replace(title, "").strip()
+        return Chapter(title=title, content=content)
 
-    @save_checkpoint("chapter")
+    @save_checkpoint(CheckpointType.CHAPTER)
     async def _optimize_chapter(self, chapter: str) -> str:
         """Optimize a single chapter."""
         prompt = CONTENT_OPTIMIZER_PROMPT.format(
             chapter_content=chapter,
-            section_word_count=self.gen_config.section_word_count,
+            section_word_count=self.generation_config.section_word_count,
         )
         return await self.llm.ask(prompt)
 
     async def generate_chapter_outline(
-        self,
-        volume_number: int,
-        description: str,
-        rough_outline: RoughOutline,
-        prev_volume_summary: Optional[str] = None,
+        self, prev_volume_summary: Optional[str] = None
     ) -> ChapterOutline:
         """Generate chapter outline for a volume."""
-        chapter_count_per_volume = self.gen_config.chapter_count_per_volume
-        start_chapter = (
-            volume_number * chapter_count_per_volume - chapter_count_per_volume + 1
-        )
-
         prompt = CHAPTER_OUTLINE_GENERATOR_PROMPT.format(
-            designated_volume=volume_number,
-            description=description,
-            rough_outline=str(rough_outline),
-            section_word_count=self.gen_config.section_word_count,
-            prev_volume_summary=prev_volume_summary or "无",
-            chapter_range=f"第{volume_number}卷：第{start_chapter}-{start_chapter + chapter_count_per_volume - 1}章",
+            designated_volume=self.current_volume_num,
+            designated_chapter=self.current_chapter_num,
+            description=self.intent.description,
+            rough_outline=str(self.current_rough_outline),
+            section_word_count=self.generation_config.section_word_count,
+            prev_volume_summary=prev_volume_summary,
         )
         response = await self.llm.ask(prompt)
-        return extract_content(response, OutlineType.CHAPTER)
+        return extract_outline(response, OutlineType.CHAPTER)
 
-    @save_checkpoint("volume")
-    @save_checkpoint("volume")
+    @save_checkpoint(CheckpointType.VOLUME)
     async def generate_volume(
         self,
-        volume_number: int,
-        intent: NovelIntent,
-        rough_outline: RoughOutline,
         prev_volume_summary: Optional[str] = None,
-        need_optim: bool = False,
     ) -> NovelVolume:
         """Generate a complete volume of the novel."""
-        logger.info(f"Starting generation of volume {volume_number}")
-
-        chapters: List[str] = []
+        logger.info(f"Starting generation of volume {self.current_volume_num}")
 
         # Initialize volume with empty data first
-        volume = NovelVolume(
-            volume_number=volume_number,
-            detailed_outline="",
-            outline_summary="",
-            chapters=chapters,
-        )
+        volume = NovelVolume(volume_num=self.current_volume_num)
 
         # Generate chapters one by one
-        for chapter_num in range(self.gen_config.chapter_count_per_volume):
+        chapter_count_per_volume = self.generation_config.chapter_count_per_volume
+        start_chapter = chapter_count_per_volume * (self.current_volume_num - 1) + 1
+        end_chapter = self.current_volume_num * chapter_count_per_volume
+        for chapter_num in range(start_chapter, end_chapter):
+            self.current_chapter_num = chapter_num + 1
             await self._generate_single_chapter(
-                volume=volume,
-                volume_number=volume_number,
-                chapter_num=chapter_num,
-                intent=intent,
-                rough_outline=rough_outline,
-                prev_volume_summary=prev_volume_summary,
-                need_optim=need_optim,
-                chapters=chapters,
+                volume=volume, prev_volume_summary=prev_volume_summary
             )
             logger.info(
-                f"Successfully generated chapter {chapter_num + 1} in volume {volume_number}"
+                f"Successfully generated chapter {chapter_num + 1} in volume {self.current_volume_num}"
             )
 
         return volume
@@ -241,62 +178,37 @@ class WebNovelGPT(BaseModel):
     async def _generate_single_chapter(
         self,
         volume: NovelVolume,
-        volume_number: int,
-        chapter_num: int,
-        intent: NovelIntent,
-        rough_outline: RoughOutline,
         prev_volume_summary: Optional[str],
-        need_optim: bool,
-        chapters: List[str],
     ) -> None:
         """Generate a single chapter including its outlines and content."""
         # Generate chapter outline for current chapter
         self.current_chapter_outline = await self.generate_chapter_outline(
-            volume_number=volume_number,
-            description=intent.description,
-            rough_outline=rough_outline,
-            prev_volume_summary=prev_volume_summary,
+            prev_volume_summary=prev_volume_summary
         )
+        volume.chapter_outline = self.current_chapter_outline
 
         # Generate detailed outline for current chapter
-        self.current_detailed_outline = await self.generate_detailed_outline()
-
-        # Update volume with latest outline
-        volume.detailed_outline = str(self.current_detailed_outline)
-        volume.outline_summary = str(self.current_chapter_outline)
+        self.current_detailed_outline = await self.generate_detailed_outline(
+            prev_volume_summary=prev_volume_summary
+        )
+        volume.detailed_outline = self.current_detailed_outline
 
         # Generate current chapter
-        chapter = await self._generate_volume_chapter(
-            volume_number=volume_number, need_optim=need_optim
-        )
+        chapter = await self.generate_chapter(volume.chapters)
+        volume.chapters.append(chapter)
 
-        chapters.append(chapter)
-        volume.chapters = chapters
-
-    async def generate_volumes(
-        self,
-        volume_count: int,
-        intent: NovelIntent,
-        rough_outline: RoughOutline,
-        prev_volume_summary: Optional[str] = None,
-    ) -> List[NovelVolume]:
+    async def generate_volumes(self) -> List[NovelVolume]:
         """Generate volumes for the novel."""
         volumes: List[NovelVolume] = []
-        current_summary = prev_volume_summary
 
-        for i in range(volume_count):
-            volume = await self.generate_volume(
-                volume_number=i + 1,
-                intent=intent,
-                rough_outline=rough_outline,
-                prev_volume_summary=current_summary,
-            )
+        for volume_num in range(self.generation_config.volume_count):
+            self.current_volume_num = volume_num + 1
+            volume = await self.generate_volume()
             volumes.append(volume)
-            current_summary = volume.outline_summary
 
         return volumes
 
-    @save_checkpoint("novel")
+    @save_checkpoint(CheckpointType.NOVEL)
     async def generate_novel(
         self,
         user_input: str,
@@ -306,75 +218,42 @@ class WebNovelGPT(BaseModel):
         """Generate complete novel from user input."""
         # Resume from checkpoint if provided
         if resume_novel_id:
-            self.current_novel_id = resume_novel_id
-            checkpoint = self.novel_saver.load_checkpoint(resume_novel_id)
-            if checkpoint:
-                logger.info(f"Resuming from checkpoint for novel {resume_novel_id}")
-                return await self._resume_generation(checkpoint)
+            self.novel_id = resume_novel_id
+            return await self._resume_generation()
 
         logger.info("Starting new novel generation")
-        self.current_intent = await self.analyze_intent(user_input)
+        self.intent = await self.analyze_intent(user_input)
         if genre:
-            self.current_intent.genre = genre
+            self.intent.genre = genre
 
-        self.current_novel_id = self._generate_novel_id(self.current_intent.description)
-        self.current_rough_outline = await self.generate_rough_outline(
-            user_input, self.current_intent
-        )
+        self.novel_id = self.generate_novel_id(self.intent.description)
+        self.current_rough_outline = await self.generate_rough_outline(user_input)
 
-        self.current_volumes = await self.generate_volumes(
-            self.gen_config.volume_count,
-            self.current_intent,
-            self.current_rough_outline,
-        )
+        self.current_volumes = await self.generate_volumes()
 
         novel = Novel(
-            intent=self.current_intent,
-            rough_outline=str(self.current_rough_outline),
+            intent=self.intent,
+            rough_outline=self.current_rough_outline,
             volumes=self.current_volumes,
             cost_info=self.cost_tracker.get(),
         )
 
         return novel
 
-    @save_checkpoint("novel")
-    async def _resume_generation(self, resume_novel_id: str) -> Novel:
+    @save_checkpoint(CheckpointType.NOVEL)
+    async def _resume_generation(self) -> Novel:
         """从检查点恢复小说生成"""
-        checkpoint = self.novel_saver.load_checkpoint(resume_novel_id)
-        if not checkpoint:
-            raise ValueError(f"No checkpoint found for novel {resume_novel_id}")
 
-        # 恢复各种大纲对象
-        self.current_rough_outline = load_outline_from_dict(
-            checkpoint.get("rough_outline_obj"), OutlineType.ROUGH
+    async def generate_detailed_outline_summary(
+        self,
+        volume_num: int,
+        rough_outline: str,
+        detailed_outline: str,
+    ) -> str:
+        """Generate summary of detailed outline."""
+        prompt = DETAILED_OUTLINE_SUMMARY_PROMPT.format(
+            volume_num=volume_num,
+            rough_outline=rough_outline,
+            detailed_outline=detailed_outline,
         )
-        self.current_chapter_outline = load_outline_from_dict(
-            checkpoint.get("chapter_outline_obj"), OutlineType.CHAPTER
-        )
-        self.current_detailed_outline = load_outline_from_dict(
-            checkpoint.get("detailed_outline_obj"), OutlineType.DETAILED
-        )
-
-        # 恢复基本数据
-        intent = NovelIntent(**checkpoint["intent"])
-        volumes = [NovelVolume(**v) for v in checkpoint["volumes"]]
-
-        # 从上次中断的地方继续
-        current_volume = len(volumes)
-        prev_volume_summary = volumes[-1].outline_summary if volumes else None
-
-        remaining_volumes = await self.generate_volumes(
-            self.gen_config.volume_count - current_volume,
-            intent,
-            self.current_rough_outline,
-            prev_volume_summary,
-        )
-
-        volumes.extend(remaining_volumes)
-
-        return Novel(
-            intent=intent,
-            rough_outline=str(self.current_rough_outline),
-            volumes=volumes,
-            cost_info=self.cost_tracker.get(),
-        )
+        return await self.llm.ask(prompt)

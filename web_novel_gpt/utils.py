@@ -118,10 +118,6 @@ def save_checkpoint(checkpoint_type: Union[str, CheckpointType]):
     def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
         @wraps(func)
         async def wrapper(self, *args, **kwargs) -> T:
-            if not self.current_novel_id:
-                logger.warning("No current novel ID found, skipping checkpoint save")
-                return await func(self, *args, **kwargs)
-
             try:
                 result = await func(self, *args, **kwargs)
 
@@ -133,38 +129,34 @@ def save_checkpoint(checkpoint_type: Union[str, CheckpointType]):
                         kwargs.get("intent"),
                         kwargs.get("rough_outline"),
                     )
-                    self.novel_saver.save_checkpoint(
-                        self.current_novel_id, checkpoint_data
-                    )
+                    self.novel_saver.save_checkpoint(self.novel_id, checkpoint_data)
 
                 elif checkpoint_type == CheckpointType.CHAPTER:
-                    volume_number = kwargs.get("volume_number")
-                    chapter_number = kwargs.get("designated_chapter")
-                    if not (volume_number and chapter_number):
+                    volume_num = kwargs.get("volume_num")
+                    chapter_number = kwargs.get("chapter_num")
+                    if not (volume_num and chapter_number):
                         logger.warning(
-                            "Missing volume_number or chapter_number for chapter checkpoint"
+                            "Missing volume_num or chapter_number for chapter checkpoint"
                         )
                     else:
                         checkpoint_data = prepare_chapter_checkpoint(self, result)
                         self.novel_saver.save_chapter(
-                            self.current_novel_id,
-                            volume_number,
+                            self.novel_id,
+                            volume_num,
                             chapter_number,
                             checkpoint_data,
                         )
 
                 elif checkpoint_type == CheckpointType.NOVEL:
                     checkpoint_data = prepare_novel_checkpoint(self, result)
-                    self.novel_saver.save_checkpoint(
-                        self.current_novel_id, checkpoint_data
-                    )
+                    self.novel_saver.save_checkpoint(self.novel_id, checkpoint_data)
                 else:
                     logger.warning(f"Unknown checkpoint type: {checkpoint_type}")
                     return result
 
                 logger.info(
                     f"Successfully saved {checkpoint_type} checkpoint for "
-                    f"novel {self.current_novel_id}"
+                    f"novel {self.novel_id}"
                 )
 
                 return result
@@ -253,7 +245,7 @@ def load_outline_from_dict(
     return outline_class.model_validate(data)
 
 
-def extract_content(
+def extract_outline(
     document: str, outline_type: OutlineType
 ) -> Union[RoughOutline, ChapterOutline, DetailedOutline]:
     """

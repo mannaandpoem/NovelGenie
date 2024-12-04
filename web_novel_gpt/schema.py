@@ -17,6 +17,43 @@ class OutlineType(str, Enum):
     DETAILED = "detailed"
 
 
+class CheckpointType(str, Enum):
+    """检查点类型枚举"""
+
+    VOLUME = "volume"
+    CHAPTER = "chapter"
+    NOVEL = "novel"
+
+
+class CheckpointKeys:
+    """检查点数据的统一key名称定义"""
+
+    # 公共键名
+    INTENT = "intent"
+    ROUGH_OUTLINE = "rough_outline"
+    CHAPTER_OUTLINE = "chapter_outline"
+    DETAILED_OUTLINE = "detailed_outline"
+
+    # Volume相关键名
+    VOLUMES = "volumes"
+    CURRENT_VOLUME = "current_volume"
+    CURRENT_OUTLINES = {
+        "chapter": "current_chapter_outline",
+        "detailed": "current_detailed_outline",
+    }
+
+    # Chapter相关键名
+    CHAPTER_CONTENT = "content"
+
+    # Novel相关键名
+    COST_INFO = "cost_info"
+    OUTLINE_OBJECTS = {
+        "rough": "current_rough_outline",
+        "chapter": "current_chapter_outline",
+        "detailed": "current_detailed_outline",
+    }
+
+
 class OutlineBase(BaseModel):
     """Base outline model with common fields."""
 
@@ -42,7 +79,6 @@ class ChapterOutline(OutlineBase):
     outline_type: OutlineType = OutlineType.CHAPTER
     chapter_overview: str = Field(..., min_length=10)
     characters_content: str = Field(..., min_length=10)
-    volume_number: int = Field(..., ge=1)
 
 
 class DetailedOutline(OutlineBase):
@@ -50,42 +86,22 @@ class DetailedOutline(OutlineBase):
 
     outline_type: OutlineType = OutlineType.DETAILED
     storyline: str = Field(..., min_length=10)
-    chapter_number: int = Field(..., ge=1)
 
 
 class Chapter(BaseModel):
     """Chapter model with its own outline."""
 
-    chapter_number: int = Field(..., ge=1)
     title: str = Field(..., min_length=1)
     content: str = Field(..., min_length=100)
-    detailed_outline: DetailedOutline
-
-    @model_validator(mode="after")
-    def validate_chapter_number(self) -> "Chapter":
-        if self.chapter_number != self.detailed_outline.chapter_number:
-            raise ValueError("Chapter number must match its detailed outline")
-        return self
 
 
 class NovelVolume(BaseModel):
     """Volume model containing chapters and outlines."""
 
-    volume_number: int = Field(..., ge=1)
-    chapter_outline: ChapterOutline  # 卷级别大纲
-    chapters: List[Chapter] = Field(default_factory=list)
-
-    @model_validator(mode="after")
-    def validate_volume(self) -> "NovelVolume":
-        # 验证卷号匹配
-        if self.volume_number != self.chapter_outline.volume_number:
-            raise ValueError("Volume number must match its chapter outline")
-        # 验证章节序号连续性
-        chapter_numbers = [ch.chapter_number for ch in self.chapters]
-        expected_numbers = list(range(1, len(self.chapters) + 1))
-        if chapter_numbers != expected_numbers:
-            raise ValueError("Chapter numbers must be sequential")
-        return self
+    volume_num: int = Field(..., ge=1)
+    chapter_outline: Optional[ChapterOutline] = Field(default=None)
+    detailed_outline: Optional[DetailedOutline] = Field(default=None)
+    chapters: List[Optional[Chapter]] = Field(default_factory=list)
 
 
 class NovelIntent(BaseModel):
@@ -107,9 +123,9 @@ class Novel(BaseModel):
     @model_validator(mode="after")
     def validate_novel(self) -> "Novel":
         # 验证卷号连续性
-        volume_numbers = [vol.volume_number for vol in self.volumes]
+        volume_nums = [vol.volume_num for vol in self.volumes]
         expected_numbers = list(range(1, len(self.volumes) + 1))
-        if volume_numbers != expected_numbers:
+        if volume_nums != expected_numbers:
             raise ValueError("Volume numbers must be sequential")
         return self
 
@@ -194,45 +210,6 @@ class NovelSaver(BaseModel):
             raise RuntimeError(f"Failed to load checkpoint: {e}") from e
 
 
-class CheckpointType(str, Enum):
-    """检查点类型枚举"""
-
-    VOLUME = "volume"
-    CHAPTER = "chapter"
-    NOVEL = "novel"
-
-
-# Step 1: 定义每种检查点类型对应的key结构
-class CheckpointKeys:
-    """检查点数据的统一key名称定义"""
-
-    # 公共键名
-    INTENT = "intent"
-    ROUGH_OUTLINE = "rough_outline"
-    CHAPTER_OUTLINE = "chapter_outline"
-    DETAILED_OUTLINE = "detailed_outline"
-
-    # Volume相关键名
-    VOLUMES = "volumes"
-    CURRENT_VOLUME = "current_volume"
-    CURRENT_OUTLINES = {
-        "chapter": "current_chapter_outline",
-        "detailed": "current_detailed_outline",
-    }
-
-    # Chapter相关键名
-    CHAPTER_CONTENT = "content"
-
-    # Novel相关键名
-    COST_INFO = "cost_info"
-    OUTLINE_OBJECTS = {
-        "rough": "rough_outline_obj",
-        "chapter": "chapter_outline_obj",
-        "detailed": "detailed_outline_obj",
-    }
-
-
-# Usage example:
 def create_sample_novel():
     rough_outline = RoughOutline(
         worldview_system="魔法世界体系" * 10,
@@ -243,20 +220,20 @@ def create_sample_novel():
     chapter_outline = ChapterOutline(
         chapter_overview="第一卷整体概述" * 10,
         characters_content="主要角色介绍" * 10,
-        volume_number=1,
+        volume_num=1,
     )
 
-    detailed_outline = DetailedOutline(storyline="第一章详细故事情节" * 10, chapter_number=1)
+    detailed_outline = DetailedOutline(storyline="第一章详细故事情节" * 10, chapter_num=1)
 
     chapter = Chapter(
-        chapter_number=1,
+        chapter_num=1,
         title="第一章",
         content="章节具体内容..." * 100,
         detailed_outline=detailed_outline,
     )
 
     volume = NovelVolume(
-        volume_number=1, chapter_outline=chapter_outline, chapters=[chapter]
+        volume_num=1, chapter_outline=chapter_outline, chapters=[chapter]
     )
 
     novel = Novel(
@@ -269,5 +246,6 @@ def create_sample_novel():
     return novel
 
 
-novel = create_sample_novel()
-print(novel.model_dump_json(indent=2))
+if __name__ == "__main__":
+    novel = create_sample_novel()
+    print(novel.model_dump_json(indent=2))
