@@ -95,6 +95,10 @@ class Config:
                 "section_word_count": raw_config.get("novel", {}).get(
                     "section_word_count", 1000
                 ),
+                "chapter_count_per_volume": raw_config.get("novel", {}).get(
+                    "chapter_count_per_volume", 3
+                ),
+                "workspace": raw_config.get("novel", {}).get("workspace", "workspace"),
             },
         }
 
