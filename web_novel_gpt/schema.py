@@ -194,6 +194,44 @@ class NovelSaver(BaseModel):
             raise RuntimeError(f"Failed to load checkpoint: {e}") from e
 
 
+class CheckpointType(str, Enum):
+    """检查点类型枚举"""
+
+    VOLUME = "volume"
+    CHAPTER = "chapter"
+    NOVEL = "novel"
+
+
+# Step 1: 定义每种检查点类型对应的key结构
+class CheckpointKeys:
+    """检查点数据的统一key名称定义"""
+
+    # 公共键名
+    INTENT = "intent"
+    ROUGH_OUTLINE = "rough_outline"
+    CHAPTER_OUTLINE = "chapter_outline"
+    DETAILED_OUTLINE = "detailed_outline"
+
+    # Volume相关键名
+    VOLUMES = "volumes"
+    CURRENT_VOLUME = "current_volume"
+    CURRENT_OUTLINES = {
+        "chapter": "current_chapter_outline",
+        "detailed": "current_detailed_outline",
+    }
+
+    # Chapter相关键名
+    CHAPTER_CONTENT = "content"
+
+    # Novel相关键名
+    COST_INFO = "cost_info"
+    OUTLINE_OBJECTS = {
+        "rough": "rough_outline_obj",
+        "chapter": "chapter_outline_obj",
+        "detailed": "detailed_outline_obj",
+    }
+
+
 # Usage example:
 def create_sample_novel():
     rough_outline = RoughOutline(
