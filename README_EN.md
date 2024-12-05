@@ -2,8 +2,7 @@
 
 [中文](README.md) | English
 
-WebNovelGPT is a Python project designed for generating web novels. This project can generate multi-volume novels based
-on user input descriptions and supports resuming the generation process from checkpoints.
+WebNovelGPT is an AI-powered web novel creation assistant that generates multi-volume stories based on user-provided creative concepts. The system seamlessly supports checkpoint-based writing continuation and sequel generation, providing creators with a natural and flexible way to craft extensive narratives without interruption.
 
 ## Installation
 
