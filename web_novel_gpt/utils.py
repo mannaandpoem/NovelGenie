@@ -1,18 +1,17 @@
 import json
 import re
 from functools import wraps
-from typing import Any, Awaitable, Callable, Dict, Optional, Tuple, TypeVar, Union
+from typing import Any, Awaitable, Callable, Dict, Optional, Tuple, TypeVar, Union, cast
 
 from pydantic import BaseModel
 
 from web_novel_gpt.logger import logger
 from web_novel_gpt.schema import (
+    Chapter,
     ChapterOutline,
-    CheckpointKeys,
     CheckpointType,
     DetailedOutline,
     Novel,
-    NovelIntent,
     NovelVolume,
     OutlineType,
     RoughOutline,
@@ -47,126 +46,87 @@ def json_parse(response: str) -> str:
     return response
 
 
-def save_checkpoint(checkpoint_type: Union[str, CheckpointType]):
+def save_checkpoint(checkpoint_type: CheckpointType):
     """
-    装饰器: 用于保存生成过程中的检查点
+    Decorator for saving complete novel state during generation.
 
     Args:
-        checkpoint_type: 检查点类型,支持 'volume', 'chapter', 'novel'
+        checkpoint_type (CheckpointType): Type of checkpoint to save
     """
-
-    def prepare_volume_checkpoint(
-        self,
-        result: Optional[NovelVolume],
-        intent: Optional[NovelIntent],
-        rough_outline: Optional[OutlineType],
-    ) -> Dict[str, Any]:
-        """准备卷级别检查点数据"""
-        return {
-            CheckpointKeys.INTENT: intent.model_dump() if intent else None,
-            CheckpointKeys.ROUGH_OUTLINE: serialize_outline(rough_outline),
-            CheckpointKeys.VOLUMES: [
-                v.model_dump() for v in getattr(self, "current_volumes", [])
-            ],
-            CheckpointKeys.CURRENT_VOLUME: result.model_dump() if result else None,
-            CheckpointKeys.CURRENT_OUTLINES["chapter"]: serialize_outline(
-                getattr(self, "current_chapter_outline", None)
-            ),
-            CheckpointKeys.CURRENT_OUTLINES["detailed"]: serialize_outline(
-                getattr(self, "current_detailed_outline", None)
-            ),
-        }
-
-    def prepare_chapter_checkpoint(
-        self,
-        result: str,
-    ) -> Dict[str, Any]:
-        """准备章节级别检查点数据"""
-        return {
-            CheckpointKeys.CHAPTER_CONTENT: result,
-            CheckpointKeys.DETAILED_OUTLINE: serialize_outline(
-                getattr(self, "current_detailed_outline", None)
-            ),
-            CheckpointKeys.CHAPTER_OUTLINE: serialize_outline(
-                getattr(self, "current_chapter_outline", None)
-            ),
-        }
-
-    def prepare_novel_checkpoint(
-        self,
-        result: Novel,
-    ) -> Dict[str, Any]:
-        """准备小说级别检查点数据"""
-        checkpoint_data = {
-            **result.model_dump(),
-            CheckpointKeys.OUTLINE_OBJECTS["rough"]: serialize_outline(
-                getattr(self, "current_rough_outline", None)
-            ),
-            CheckpointKeys.OUTLINE_OBJECTS["chapter"]: serialize_outline(
-                getattr(self, "current_chapter_outline", None)
-            ),
-            CheckpointKeys.OUTLINE_OBJECTS["detailed"]: serialize_outline(
-                getattr(self, "current_detailed_outline", None)
-            ),
-        }
-        # 确保cost_info存在
-        if CheckpointKeys.COST_INFO not in checkpoint_data:
-            checkpoint_data[CheckpointKeys.COST_INFO] = {}
-
-        return checkpoint_data
 
     def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
         @wraps(func)
         async def wrapper(self, *args, **kwargs) -> T:
+            if not self.novel_id:
+                return await func(self, *args, **kwargs)
+
             try:
                 result = await func(self, *args, **kwargs)
 
-                # Step 2: 根据检查点类型准备数据
+                # Base checkpoint data with novel-level info
+                checkpoint_data = {
+                    "intent": self.intent.model_dump() if self.intent else None,
+                    "rough_outline": self.rough_outline.model_dump()
+                    if self.rough_outline
+                    else None,
+                    "volumes": [v.model_dump() for v in self.volumes],
+                    "current_volume_num": self.current_volume_num,
+                    "current_chapter_num": self.current_chapter_num,
+                }
+
                 if checkpoint_type == CheckpointType.VOLUME:
-                    checkpoint_data = prepare_volume_checkpoint(
-                        self,
-                        result,
-                        kwargs.get("intent"),
-                        kwargs.get("rough_outline"),
-                    )
-                    self.novel_saver.save_checkpoint(self.novel_id, checkpoint_data)
+                    volume = cast(NovelVolume, result)
+                    checkpoint_data["current_volume"] = volume.model_dump()
 
                 elif checkpoint_type == CheckpointType.CHAPTER:
-                    volume_num = kwargs.get("volume_num")
-                    chapter_number = kwargs.get("chapter_num")
-                    if not (volume_num and chapter_number):
-                        logger.warning(
-                            "Missing volume_num or chapter_number for chapter checkpoint"
-                        )
-                    else:
-                        checkpoint_data = prepare_chapter_checkpoint(self, result)
+                    chapter = cast(Chapter, result)
+                    # Save chapter content separately
+                    if self.current_volume_num and self.current_chapter_num:
                         self.novel_saver.save_chapter(
                             self.novel_id,
-                            volume_num,
-                            chapter_number,
-                            checkpoint_data,
+                            self.current_volume_num,
+                            self.current_chapter_num,
+                            chapter.content,
                         )
 
+                    # Update checkpoint with current chapter data
+                    checkpoint_data.update(
+                        {
+                            "current_chapter": {
+                                "title": chapter.title,
+                                "content": chapter.content,
+                            },
+                            "chapter_outline": self.chapter_outline.model_dump()
+                            if self.chapter_outline
+                            else None,
+                            "detailed_outline": self.detailed_outline.model_dump()
+                            if self.detailed_outline
+                            else None,
+                        }
+                    )
+
                 elif checkpoint_type == CheckpointType.NOVEL:
-                    checkpoint_data = prepare_novel_checkpoint(self, result)
-                    self.novel_saver.save_checkpoint(self.novel_id, checkpoint_data)
-                else:
-                    logger.warning(f"Unknown checkpoint type: {checkpoint_type}")
-                    return result
+                    novel = cast(Novel, result)
+                    checkpoint_data.update(
+                        {
+                            "intent": novel.intent.model_dump(),
+                            "rough_outline": novel.rough_outline.model_dump(),
+                            "volumes": [v.model_dump() for v in novel.volumes],
+                            "cost_info": novel.cost_info,
+                        }
+                    )
 
+                self.novel_saver.save_checkpoint(self.novel_id, checkpoint_data)
                 logger.info(
-                    f"Successfully saved {checkpoint_type} checkpoint for "
-                    f"novel {self.novel_id}"
+                    f"Saved {checkpoint_type.value} checkpoint for novel {self.novel_id}"
                 )
-
                 return result
 
             except Exception as e:
                 logger.error(
-                    f"Error saving {checkpoint_type} checkpoint: {str(e)}",
-                    exc_info=True,
+                    f"Failed to save {checkpoint_type.value} checkpoint: {str(e)}"
                 )
-                raise
+                raise RuntimeError(f"Checkpoint save failed: {str(e)}") from e
 
         return wrapper
 

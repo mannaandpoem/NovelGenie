@@ -24,35 +24,6 @@ class CheckpointType(str, Enum):
     NOVEL = "novel"
 
 
-class CheckpointKeys:
-    """检查点数据的统一key名称定义"""
-
-    # 公共键名
-    INTENT = "intent"
-    ROUGH_OUTLINE = "rough_outline"
-    CHAPTER_OUTLINE = "chapter_outline"
-    DETAILED_OUTLINE = "detailed_outline"
-
-    # Volume相关键名
-    VOLUMES = "volumes"
-    CURRENT_VOLUME = "current_volume"
-    CURRENT_OUTLINES = {
-        "chapter": "current_chapter_outline",
-        "detailed": "current_detailed_outline",
-    }
-
-    # Chapter相关键名
-    CHAPTER_CONTENT = "content"
-
-    # Novel相关键名
-    COST_INFO = "cost_info"
-    OUTLINE_OBJECTS = {
-        "rough": "current_rough_outline",
-        "chapter": "current_chapter_outline",
-        "detailed": "current_detailed_outline",
-    }
-
-
 class OutlineBase(BaseModel):
     """Base outline model with common fields."""
 
@@ -224,14 +195,15 @@ def create_sample_novel():
     detailed_outline = DetailedOutline(storyline="第一章详细故事情节" * 10, chapter_num=1)
 
     chapter = Chapter(
-        chapter_num=1,
         title="第一章",
         content="章节具体内容..." * 100,
-        detailed_outline=detailed_outline,
     )
 
     volume = NovelVolume(
-        volume_num=1, chapter_outline=chapter_outline, chapters=[chapter]
+        volume_num=1,
+        chapter_outline=chapter_outline,
+        chapters=[chapter],
+        detailed_outline=detailed_outline,
     )
 
     novel = Novel(

@@ -528,7 +528,7 @@ ROUGH_OUTLINE_GENERATOR_PROMPT_V2 = """
 </character_system>
 
 <plot_design>
-## 4. 剧情结构设计
+## 剧情结构设计
 
 ### 1. 整体架构规划
 

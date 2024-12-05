@@ -165,7 +165,7 @@ class WebNovelGPT(BaseModel):
         start_chapter = chapter_count_per_volume * (self.current_volume_num - 1) + 1
         end_chapter = self.current_volume_num * chapter_count_per_volume
         for chapter_num in range(start_chapter, end_chapter):
-            self.current_chapter_num = chapter_num + 1
+            self.current_chapter_num = chapter_num
             await self._generate_single_chapter(
                 volume=volume, prev_volume_summary=prev_volume_summary
             )
@@ -242,7 +242,60 @@ class WebNovelGPT(BaseModel):
 
     @save_checkpoint(CheckpointType.NOVEL)
     async def _resume_generation(self) -> Novel:
-        """从检查点恢复小说生成"""
+        """Resume novel generation from checkpoint."""
+        checkpoint_data = self.novel_saver.load_checkpoint(self.novel_id)
+        if not checkpoint_data:
+            raise ValueError(f"No checkpoint found for novel {self.novel_id}")
+
+        try:
+            # Restore instance variables
+            self.intent = (
+                NovelIntent(**checkpoint_data["intent"])
+                if checkpoint_data.get("intent")
+                else None
+            )
+            self.rough_outline = (
+                RoughOutline(**checkpoint_data["rough_outline"])
+                if checkpoint_data.get("rough_outline")
+                else None
+            )
+            self.current_volume_num = checkpoint_data.get("current_volume_num")
+            self.current_chapter_num = checkpoint_data.get("current_chapter_num")
+
+            # Reconstruct volumes with their outlines and chapters
+            volumes = []
+            for vol_data in checkpoint_data.get("volumes", []):
+                chapter_outline_data = vol_data.get("chapter_outline")
+                detailed_outline_data = vol_data.get("detailed_outline")
+
+                volume = NovelVolume(
+                    volume_num=vol_data["volume_num"],
+                    chapter_outline=ChapterOutline(**chapter_outline_data)
+                    if chapter_outline_data
+                    else None,
+                    detailed_outline=DetailedOutline(**detailed_outline_data)
+                    if detailed_outline_data
+                    else None,
+                    chapters=[Chapter(**ch) for ch in vol_data.get("chapters", [])],
+                )
+                volumes.append(volume)
+
+            self.volumes = volumes
+
+            # Create and return novel object
+            novel = Novel(
+                intent=self.intent,
+                rough_outline=self.rough_outline,
+                volumes=self.volumes,
+                cost_info=checkpoint_data.get("cost_info", {}),
+            )
+
+            logger.info(f"Successfully resumed novel generation for {self.novel_id}")
+            return novel
+
+        except Exception as e:
+            logger.error(f"Failed to resume novel generation: {str(e)}")
+            raise RuntimeError(f"Resume generation failed: {str(e)}") from e
 
     async def generate_detailed_outline_summary(
         self,
