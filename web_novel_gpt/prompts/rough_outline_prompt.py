@@ -281,6 +281,7 @@ ROUGH_OUTLINE_GENERATOR_PROMPT_V2 = """
 - 作品类型：{genre}
 - 作品描述：{description}
 - 计划卷数：{volume_count}
+严格遵循用户输入的信息生成网文大纲，特别是要遵从用户指定的卷数要求。
 
 # 输出格式
 请你以 <worldview_system>、<character_system>、<plot_design> 标签的格式输出你撰写的网文大纲。
@@ -557,7 +558,7 @@ ROUGH_OUTLINE_GENERATOR_PROMPT_V2 = """
   * 辅助功能定位
 
 ### 2. 分卷结构规划
-
+基于用户输入的计划卷数，设计网文的分卷结构。
 #### 2.1 开篇卷设计（第1卷）
 - 内容布局
   * 世界观铺垫（30%）

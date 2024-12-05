@@ -63,6 +63,9 @@ class Chapter(BaseModel):
     title: str = Field(..., min_length=1)
     content: str = Field(..., min_length=100)
 
+    def __str__(self):
+        return f"{self.title}\n\n{self.content}"
+
 
 class NovelVolume(BaseModel):
     """Volume model containing chapters and outlines."""
@@ -140,16 +143,13 @@ class NovelSaver(BaseModel):
                 return [to_dict(item) for item in data]
             return data
 
-        try:
-            checkpoint_path.write_text(
-                json.dumps(to_dict(novel_data), ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
-        except Exception as e:
-            raise RuntimeError(f"Failed to save checkpoint: {e}") from e
+        checkpoint_path.write_text(
+            json.dumps(to_dict(novel_data), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
 
     def save_chapter(
-        self, novel_id: str, volume_num: int, chapter_num: int, content: str
+        self, novel_id: str, volume_num: int, chapter_num: int, chapter: Chapter
     ) -> None:
         """Save individual chapter content."""
         volume_dir = (
@@ -158,25 +158,14 @@ class NovelSaver(BaseModel):
         volume_dir.mkdir(exist_ok=True)
 
         chapter_path = volume_dir / f"chapter_{chapter_num}.txt"
-        try:
-            content_str = (
-                content.model_dump() if isinstance(content, BaseModel) else str(content)
-            )
-            chapter_path.write_text(content_str, encoding="utf-8")
-        except Exception as e:
-            raise RuntimeError(f"Failed to save chapter: {e}") from e
+        chapter_path.write_text(str(chapter), encoding="utf-8")
 
     def load_checkpoint(self, novel_id: str) -> Optional[Dict]:
         """Load existing checkpoint if available."""
         checkpoint_path = self._ensure_dirs(novel_id)["checkpoints"] / "checkpoint.json"
-        try:
-            return (
-                json.loads(checkpoint_path.read_text(encoding="utf-8"))
-                if checkpoint_path.exists()
-                else None
-            )
-        except Exception as e:
-            raise RuntimeError(f"Failed to load checkpoint: {e}") from e
+        if checkpoint_path.exists():
+            return json.loads(checkpoint_path.read_text(encoding="utf-8"))
+        return None
 
 
 def create_sample_novel():
@@ -206,14 +195,12 @@ def create_sample_novel():
         detailed_outline=detailed_outline,
     )
 
-    novel = Novel(
+    return Novel(
         intent=NovelIntent(title="示例小说", description="这是一个示例小说" * 10, genre="奇幻"),
         rough_outline=rough_outline,
         volumes=[volume],
         cost_info={"cost": 1000},
     )
-
-    return novel
 
 
 if __name__ == "__main__":

@@ -220,7 +220,7 @@ class WebNovelGPT(BaseModel):
     async def generate_novel(
         self,
         user_input: str,
-        genre: Optional[str] = None,
+        intent: Optional[NovelIntent] = None,
         resume_novel_id: Optional[str] = None,
     ) -> Novel:
         """Generate complete novel from user input."""
@@ -230,9 +230,8 @@ class WebNovelGPT(BaseModel):
             return await self._resume_generation()
 
         logger.info("Starting new novel generation")
-        self.intent = await self.analyze_intent(user_input)
-        if genre:
-            self.intent.genre = genre
+
+        self.intent = await self.analyze_intent(user_input) if not intent else intent
 
         self.novel_id = self.generate_novel_id(self.intent.description)
         self.rough_outline = await self.generate_rough_outline(user_input)

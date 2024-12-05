@@ -82,7 +82,7 @@ def save_checkpoint(checkpoint_type: CheckpointType):
                         self.novel_id,
                         self.current_volume_num,
                         self.current_chapter_num,
-                        chapter.content,
+                        chapter,
                     )
 
                 # Update checkpoint with current chapter data
@@ -246,10 +246,10 @@ def extract_outline(
 
     # Extract content based on outline type
     content = {}
-    for key, tag in tag_mappings[outline_type].items():
-        extracted_content = extract_tag_content(tag)
+    for key, t in tag_mappings[outline_type].items():
+        extracted_content = extract_tag_content(t)
         if extracted_content is None:
-            raise ValueError(f"Required content '{tag}' not found in document")
+            raise ValueError(f"Required content '{t}' not found in document")
         content[key] = extracted_content
 
     # Create appropriate outline object based on type
