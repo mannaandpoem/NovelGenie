@@ -102,6 +102,14 @@ class WebNovelGPT(BaseModel):
             section_word_count=self.generation_config.section_word_count,
             prev_volume_summary=prev_volume_summary,
             chapter_outline=self.chapter_outline,
+            existing_detailed_outline="\n\n".join(
+                [
+                    detailed_outline
+                    for detailed_outline in self.volumes[
+                        self.current_volume_num - 1
+                    ].detailed_outlines
+                ]
+            ),
         )
         response = await self.llm.ask(prompt)
         return extract_outline(response, OutlineType.DETAILED)
@@ -144,6 +152,14 @@ class WebNovelGPT(BaseModel):
             description=self.intent.description,
             rough_outline=str(self.rough_outline),
             section_word_count=self.generation_config.section_word_count,
+            existing_chapter_outline="\n\n".join(
+                [
+                    chapter_outline
+                    for chapter_outline in self.volumes[
+                        self.current_volume_num - 1
+                    ].chapter_outlines
+                ]
+            ),
             prev_volume_summary=prev_volume_summary,
         )
         response = await self.llm.ask(prompt)

@@ -144,11 +144,11 @@ DETAILED_OUTLINE_GENERATOR_PROMPT_V2 = """
 ## 网文描述
 {description}
 
-## 前几卷细纲总结
-{prev_volume_summary}
-
 ## 网文粗纲
 {rough_outline}
+
+## 已有的章纲
+{existing_chapter_outline}
 
 # 输出格式
 请你以 <storyline> 标签的格式输出你撰写的网文细纲。

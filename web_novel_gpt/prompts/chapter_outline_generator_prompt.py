@@ -13,6 +13,9 @@ CHAPTER_OUTLINE_GENERATOR_PROMPT = """
 ## 网文粗纲
 {rough_outline}
 
+## 已有的章纲
+{existing_chapter_outline}
+
 # 输出格式
 请你以 <chapter_overview> 和 <characters_content> 标签的格式输出你的网文章节纲要。
 

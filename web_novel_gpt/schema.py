@@ -49,12 +49,18 @@ class ChapterOutline(OutlineBase):
     chapter_overview: str = Field(..., min_length=10)
     characters_content: str = Field(..., min_length=10)
 
+    def __str__(self):
+        return f"{self.chapter_overview}\n\n{self.characters_content}"
+
 
 class DetailedOutline(OutlineBase):
     """Chapter-level detailed outline."""
 
     outline_type: OutlineType = OutlineType.DETAILED
     storyline: str = Field(..., min_length=10)
+
+    def __str__(self):
+        return self.storyline
 
 
 class Chapter(BaseModel):
