@@ -163,8 +163,14 @@ class WebNovelGPT(BaseModel):
         # Generate chapters one by one
         chapter_count_per_volume = self.generation_config.chapter_count_per_volume
         start_chapter = chapter_count_per_volume * (self.current_volume_num - 1) + 1
+        self.current_chapter_num = (
+            self.current_chapter_num + 1
+            if self.current_chapter_num is not None
+            else None
+        )
+        start_chapter = self.current_chapter_num or start_chapter
         end_chapter = self.current_volume_num * chapter_count_per_volume
-        for chapter_num in range(start_chapter, end_chapter):
+        for chapter_num in range(start_chapter, end_chapter + 1):
             self.current_chapter_num = chapter_num
             await self._generate_single_chapter(
                 volume=volume, prev_volume_summary=prev_volume_summary
@@ -185,13 +191,14 @@ class WebNovelGPT(BaseModel):
         self.chapter_outline = await self.generate_chapter_outline(
             prev_volume_summary=prev_volume_summary
         )
-        volume.chapter_outline = self.chapter_outline
+        volume.chapter_outlines.append(self.chapter_outline)
 
         # Generate detailed outline for current chapter
         self.detailed_outline = await self.generate_detailed_outline(
             prev_volume_summary=prev_volume_summary
         )
-        volume.detailed_outline = self.detailed_outline
+        # volume.detailed_outlines = self.detailed_outline
+        volume.detailed_outlines.append(self.detailed_outline)
 
         # Generate current chapter
         chapter = await self.generate_chapter(volume.chapters)
@@ -200,9 +207,10 @@ class WebNovelGPT(BaseModel):
     async def generate_volumes(self) -> List[NovelVolume]:
         """Generate volumes for the novel."""
         volumes: List[NovelVolume] = []
-
-        for volume_num in range(self.generation_config.volume_count):
-            self.current_volume_num = volume_num + 1
+        start_volume = self.current_volume_num or 1
+        # for volume_num in range(self.generation_config.volume_count):
+        for volume_num in range(start_volume, self.generation_config.volume_count + 1):
+            self.current_volume_num = volume_num
             volume = await self.generate_volume()
             volumes.append(volume)
 
@@ -281,6 +289,7 @@ class WebNovelGPT(BaseModel):
                 volumes.append(volume)
 
             self.volumes = volumes
+            self.volumes = await self.generate_volumes()
 
             # Create and return novel object
             novel = Novel(

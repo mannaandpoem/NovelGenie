@@ -57,76 +57,78 @@ def save_checkpoint(checkpoint_type: CheckpointType):
     def decorator(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
         @wraps(func)
         async def wrapper(self, *args, **kwargs) -> T:
-            if not self.novel_id:
-                return await func(self, *args, **kwargs)
+            result = await func(self, *args, **kwargs)
 
-            try:
-                result = await func(self, *args, **kwargs)
+            # Base checkpoint data with novel-level info
+            checkpoint_data = {
+                "intent": self.intent.model_dump() if self.intent else None,
+                "rough_outline": self.rough_outline.model_dump()
+                if self.rough_outline
+                else None,
+                "volumes": [v.model_dump() for v in self.volumes],
+                "current_volume_num": self.current_volume_num,
+                "current_chapter_num": self.current_chapter_num,
+            }
 
-                # Base checkpoint data with novel-level info
-                checkpoint_data = {
-                    "intent": self.intent.model_dump() if self.intent else None,
-                    "rough_outline": self.rough_outline.model_dump()
-                    if self.rough_outline
-                    else None,
-                    "volumes": [v.model_dump() for v in self.volumes],
-                    "current_volume_num": self.current_volume_num,
-                    "current_chapter_num": self.current_chapter_num,
-                }
+            if checkpoint_type == CheckpointType.VOLUME:
+                volume = cast(NovelVolume, result)
+                checkpoint_data["current_volume"] = volume.model_dump()
 
-                if checkpoint_type == CheckpointType.VOLUME:
-                    volume = cast(NovelVolume, result)
-                    checkpoint_data["current_volume"] = volume.model_dump()
-
-                elif checkpoint_type == CheckpointType.CHAPTER:
-                    chapter = cast(Chapter, result)
-                    # Save chapter content separately
-                    if self.current_volume_num and self.current_chapter_num:
-                        self.novel_saver.save_chapter(
-                            self.novel_id,
-                            self.current_volume_num,
-                            self.current_chapter_num,
-                            chapter.content,
-                        )
-
-                    # Update checkpoint with current chapter data
-                    checkpoint_data.update(
-                        {
-                            "current_chapter": {
-                                "title": chapter.title,
-                                "content": chapter.content,
-                            },
-                            "chapter_outline": self.chapter_outline.model_dump()
-                            if self.chapter_outline
-                            else None,
-                            "detailed_outline": self.detailed_outline.model_dump()
-                            if self.detailed_outline
-                            else None,
-                        }
+            elif checkpoint_type == CheckpointType.CHAPTER:
+                chapter = cast(Chapter, result)
+                # Save chapter content separately
+                if self.current_volume_num and self.current_chapter_num:
+                    self.novel_saver.save_chapter(
+                        self.novel_id,
+                        self.current_volume_num,
+                        self.current_chapter_num,
+                        chapter.content,
                     )
 
-                elif checkpoint_type == CheckpointType.NOVEL:
-                    novel = cast(Novel, result)
-                    checkpoint_data.update(
-                        {
-                            "intent": novel.intent.model_dump(),
-                            "rough_outline": novel.rough_outline.model_dump(),
-                            "volumes": [v.model_dump() for v in novel.volumes],
-                            "cost_info": novel.cost_info,
-                        }
-                    )
-
-                self.novel_saver.save_checkpoint(self.novel_id, checkpoint_data)
-                logger.info(
-                    f"Saved {checkpoint_type.value} checkpoint for novel {self.novel_id}"
+                # Update checkpoint with current chapter data
+                checkpoint_data.update(
+                    {
+                        "current_chapter": {
+                            "title": chapter.title,
+                            "content": chapter.content,
+                        },
+                        # "chapter_outline": self.chapter_outlines.model_dump()
+                        "chapter_outlines": [
+                            co.model_dump()
+                            for co in self.volumes[
+                                self.current_volume_num - 1
+                            ].chapter_outlines
+                        ]
+                        if self.volumes
+                        else None,
+                        # "detailed_outline": self.detailed_outlines.model_dump()
+                        "detailed_outlines": [
+                            do.model_dump()
+                            for do in self.volumes[
+                                self.current_volume_num - 1
+                            ].detailed_outlines
+                        ]
+                        if self.volumes
+                        else None,
+                    }
                 )
-                return result
 
-            except Exception as e:
-                logger.error(
-                    f"Failed to save {checkpoint_type.value} checkpoint: {str(e)}"
+            elif checkpoint_type == CheckpointType.NOVEL:
+                novel = cast(Novel, result)
+                checkpoint_data.update(
+                    {
+                        "intent": novel.intent.model_dump(),
+                        "rough_outline": novel.rough_outline.model_dump(),
+                        "volumes": [v.model_dump() for v in novel.volumes],
+                        "cost_info": novel.cost_info,
+                    }
                 )
-                raise RuntimeError(f"Checkpoint save failed: {str(e)}") from e
+
+            self.novel_saver.save_checkpoint(self.novel_id, checkpoint_data)
+            logger.info(
+                f"Saved {checkpoint_type.value} checkpoint for novel {self.novel_id}"
+            )
+            return result
 
         return wrapper
 

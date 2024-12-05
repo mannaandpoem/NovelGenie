@@ -68,8 +68,8 @@ class NovelVolume(BaseModel):
     """Volume model containing chapters and outlines."""
 
     volume_num: int = Field(..., ge=1)
-    chapter_outline: Optional[ChapterOutline] = Field(default=None)
-    detailed_outline: Optional[DetailedOutline] = Field(default=None)
+    chapter_outlines: List[Optional[ChapterOutline]] = Field(default_factory=list)
+    detailed_outlines: List[Optional[DetailedOutline]] = Field(default_factory=list)
     chapters: List[Optional[Chapter]] = Field(default_factory=list)
 
 
