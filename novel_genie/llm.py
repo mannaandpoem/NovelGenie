@@ -5,6 +5,7 @@ import openai
 from pydantic import BaseModel, Field, model_validator
 
 from novel_genie.config import LLMSettings, config
+from novel_genie.prompts.system_prompt import SYSTEM_PROMPT
 
 
 class LLM(BaseModel):
@@ -36,20 +37,28 @@ class LLM(BaseModel):
             **data
         )
 
-    async def ask(self, prompt: str, stream: bool = True) -> str:
+    async def ask(
+        self, prompt: str, stream: bool = True, system_prompt: str = SYSTEM_PROMPT
+    ) -> str:
         """
         Send a prompt to the LLM and get the response.
 
         Args:
             prompt (str): The prompt to send
             stream (bool): Whether to stream the response
+            system_prompt (str): The system prompt to send
 
         Returns:
             str: The generated response
         """
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
         response = await openai.ChatCompletion.acreate(
             model=self.model,
-            messages=[{"role": "user", "content": prompt}],
+            messages=messages,
             max_tokens=self.max_tokens,
             temperature=self.temperature,
             stream=stream,
