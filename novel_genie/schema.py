@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-from web_novel_gpt.config import config
+from novel_genie.config import config
 
 
 class OutlineType(str, Enum):

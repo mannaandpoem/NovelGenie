@@ -1,15 +1,15 @@
-# WebNovelGPT
+# NovelGenie
 
 [中文](README.md) | English
 
-WebNovelGPT is an AI-powered web novel creation assistant that generates multi-volume stories based on user-provided creative concepts. The system seamlessly supports checkpoint-based writing continuation and sequel generation, providing creators with a natural and flexible way to craft extensive narratives without interruption.
+NovelGenie is an AI-powered web novel creation assistant that generates multi-volume stories based on user-provided creative concepts. The system seamlessly supports checkpoint-based writing continuation and sequel generation, providing creators with a natural and flexible way to craft extensive narratives without interruption.
 
 ## Installation
 
 1. Clone this repository:
     ```sh
-    git clone https://github.com/mannaandpoem/WebNovelGPT.git
-    cd WebNovelGPT
+    git clone https://github.com/mannaandpoem/NovelGenie.git
+    cd NovelGenie
     ```
 
 2. Create and activate a virtual environment:
@@ -37,20 +37,20 @@ Before using, please check `config.example.yaml` and create and configure your `
 ```python
 import asyncio
 
-from web_novel_gpt.generate_novel import WebNovelGPT
-from web_novel_gpt.logger import logger
+from novel_genie.generate_novel import NovelGenie
+from novel_genie.logger import logger
 
 
 async def main():
-    web_novel_gpt = WebNovelGPT()
-    user_input = "An ordinary office worker accidentally obtains a system and begins their journey of workplace counterattack."
+   web_novel_gpt = NovelGenie()
+   user_input = "An ordinary office worker accidentally obtains a system and begins their journey of workplace counterattack."
 
-    novel = await web_novel_gpt.generate_novel(user_input=user_input)
-    logger.info(f"Generated novel: \n{novel}")
+   novel = await web_novel_gpt.generate_novel(user_input=user_input)
+   logger.info(f"Generated novel: \n{novel}")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+   asyncio.run(main())
 ```
 
 ### Resume Novel Generation from Checkpoint
@@ -58,20 +58,20 @@ if __name__ == "__main__":
 ```python
 import asyncio
 
-from web_novel_gpt.generate_novel import WebNovelGPT
-from web_novel_gpt.logger import logger
+from novel_genie.generate_novel import NovelGenie
+from novel_genie.logger import logger
 
 
 async def main():
-    web_novel_gpt = WebNovelGPT()
-    user_input = "An ordinary office worker accidentally obtains a system and begins their journey of workplace counterattack."
+   web_novel_gpt = NovelGenie()
+   user_input = "An ordinary office worker accidentally obtains a system and begins their journey of workplace counterattack."
 
-    novel = await web_novel_gpt.generate_novel(user_input=user_input, resume_novel_id="your_novel_id")
-    logger.info(f"Generated novel: \n{novel}")
+   novel = await web_novel_gpt.generate_novel(user_input=user_input, resume_novel_id="your_novel_id")
+   logger.info(f"Generated novel: \n{novel}")
 
 
 if __name__ == '__main__':
-    asyncio.run(main())
+   asyncio.run(main())
 ```
 
 ## Contributing

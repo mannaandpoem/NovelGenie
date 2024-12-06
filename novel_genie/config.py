@@ -10,7 +10,7 @@ def get_project_root() -> str:
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-WebNovelGPT_ROOT = get_project_root()
+NovelGenie = get_project_root()
 
 
 class LLMSettings(BaseModel):
@@ -64,7 +64,7 @@ class Config:
     @staticmethod
     def _get_config_path() -> str:
         """获取配置文件路径"""
-        root = WebNovelGPT_ROOT
+        root = NovelGenie
         config_path = os.path.join(root, "config", "config.yaml")
         if not os.path.exists(config_path):
             config_path = os.path.join(root, "config", "config.example.yaml")
@@ -119,8 +119,8 @@ class Config:
 config = Config()
 
 
-class WebNovelGenerationConfig(BaseModel):
-    """Web novel generation configuration."""
+class NovelGenerationConfig(BaseModel):
+    """novel generation configuration."""
 
     section_word_count: int = Field(
         default_factory=lambda: config.novel.section_word_count

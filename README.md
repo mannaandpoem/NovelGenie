@@ -1,15 +1,15 @@
-# WebNovelGPT
+# NovelGenie
 
 中文 | [English](README_EN.md)
 
-WebNovelGPT 是一款智能网文创作助手，能够基于用户提供的创意构思自动生成完整的多卷小说作品。它不仅支持断点续写和续作功能，还能让创作过程变得更加灵活自然，帮助作者轻松驾驭长篇故事创作。
+NovelGenie 是一款智能网文创作助手，能够基于用户提供的创意构思自动生成完整的多卷小说作品。它不仅支持断点续写和续作功能，还能让创作过程变得更加灵活自然，帮助作者轻松驾驭长篇故事创作。
 
 ## 安装
 
 1. 克隆此仓库：
     ```sh
-    git clone https://github.com/mannaandpoem/WebNovelGPT.git
-    cd WebNovelGPT
+    git clone https://github.com/mannaandpoem/NovelGenie.git
+    cd NovelGenie
     ```
 
 2. 创建并激活虚拟环境：
@@ -37,20 +37,20 @@ WebNovelGPT 是一款智能网文创作助手，能够基于用户提供的创�
 ```python
 import asyncio
 
-from web_novel_gpt.generate_novel import WebNovelGPT
-from web_novel_gpt.logger import logger
+from novel_genie.generate_novel import NovelGenie
+from novel_genie.logger import logger
 
 
 async def main():
-    web_novel_gpt = WebNovelGPT()
-    user_input = "普通上班族意外获得系统，开始了自己的职场逆袭之路。"
+   web_novel_gpt = NovelGenie()
+   user_input = "普通上班族意外获得系统，开始了自己的职场逆袭之路。"
 
-    novel = await web_novel_gpt.generate_novel(user_input=user_input)
-    logger.info(f"Generated novel: \n{novel}")
+   novel = await web_novel_gpt.generate_novel(user_input=user_input)
+   logger.info(f"Generated novel: \n{novel}")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+   asyncio.run(main())
 ```
 
 ### 从检查点恢复生成小说
@@ -58,20 +58,20 @@ if __name__ == "__main__":
 ```python
 import asyncio
 
-from web_novel_gpt.generate_novel import WebNovelGPT
-from web_novel_gpt.logger import logger
+from novel_genie.generate_novel import NovelGenie
+from novel_genie.logger import logger
 
 
 async def main():
-    web_novel_gpt = WebNovelGPT()
-    user_input = "普通上班族意外获得系统，开始了自己的职场逆袭之路。"
+   web_novel_gpt = NovelGenie()
+   user_input = "普通上班族意外获得系统，开始了自己的职场逆袭之路。"
 
-    novel = await web_novel_gpt.generate_novel(user_input=user_input, resume_novel_id="your_novel_id")
-    logger.info(f"Generated novel: \n{novel}")
+   novel = await web_novel_gpt.generate_novel(user_input=user_input, resume_novel_id="your_novel_id")
+   logger.info(f"Generated novel: \n{novel}")
 
 
 if __name__ == '__main__':
-    asyncio.run(main())
+   asyncio.run(main())
 ```
 
 ## 贡献

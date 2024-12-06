@@ -4,7 +4,7 @@ from typing import Optional
 import openai
 from pydantic import BaseModel, Field, model_validator
 
-from web_novel_gpt.config import LLMSettings, config
+from novel_genie.config import LLMSettings, config
 
 
 class LLM(BaseModel):

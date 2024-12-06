@@ -5,8 +5,8 @@ from typing import Any, Awaitable, Callable, Dict, Optional, Tuple, TypeVar, Uni
 
 from pydantic import BaseModel
 
-from web_novel_gpt.logger import logger
-from web_novel_gpt.schema import (
+from novel_genie.logger import logger
+from novel_genie.schema import (
     Chapter,
     ChapterOutline,
     CheckpointType,

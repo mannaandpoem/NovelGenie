@@ -1,14 +1,14 @@
 import asyncio
 
-from web_novel_gpt.generate_novel import WebNovelGPT
-from web_novel_gpt.logger import logger
+from novel_genie.generate_novel import NovelGenie
+from novel_genie.logger import logger
 
 
 async def main():
-    web_novel_gpt = WebNovelGPT()
+    novel_genie = NovelGenie()
     user_input = "普通上班族意外获得系统，开始了自己的职场逆袭之路。"
 
-    novel = await web_novel_gpt.generate_novel(user_input=user_input)
+    novel = await novel_genie.generate_novel(user_input=user_input)
     logger.info(f"Generated novel: \n{novel}")
 
 

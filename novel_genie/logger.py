@@ -3,7 +3,7 @@ from datetime import datetime
 
 from loguru import logger as _logger
 
-from web_novel_gpt.config import WebNovelGPT_ROOT
+from novel_genie.config import NovelGenie
 
 
 _print_level = "INFO"
@@ -22,7 +22,7 @@ def define_log_level(print_level="INFO", logfile_level="DEBUG", name: str = None
 
     _logger.remove()
     _logger.add(sys.stderr, level=print_level)
-    _logger.add(f"{WebNovelGPT_ROOT}/logs/{log_name}.txt", level=logfile_level)
+    _logger.add(f"{NovelGenie}/logs/{log_name}.txt", level=logfile_level)
     return _logger
 
 

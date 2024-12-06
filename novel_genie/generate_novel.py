@@ -4,22 +4,22 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
-from web_novel_gpt.config import WebNovelGenerationConfig
-from web_novel_gpt.cost import Cost
-from web_novel_gpt.llm import LLM
-from web_novel_gpt.logger import logger
-from web_novel_gpt.prompts.chapter_outline_generator_prompt import (
+from novel_genie.config import NovelGenerationConfig
+from novel_genie.cost import Cost
+from novel_genie.llm import LLM
+from novel_genie.logger import logger
+from novel_genie.prompts.chapter_outline_generator_prompt import (
     CHAPTER_OUTLINE_GENERATOR_PROMPT,
 )
-from web_novel_gpt.prompts.content_generator_prompt import CONTENT_GENERATOR_PROMPT
-from web_novel_gpt.prompts.content_optimizer_prompt import CONTENT_OPTIMIZER_PROMPT
-from web_novel_gpt.prompts.detail_outline_generator_prompt import (
+from novel_genie.prompts.content_generator_prompt import CONTENT_GENERATOR_PROMPT
+from novel_genie.prompts.content_optimizer_prompt import CONTENT_OPTIMIZER_PROMPT
+from novel_genie.prompts.detail_outline_generator_prompt import (
     DETAILED_OUTLINE_GENERATOR_PROMPT_V2,
     DETAILED_OUTLINE_SUMMARY_PROMPT,
 )
-from web_novel_gpt.prompts.intent_analyzer_prompt import INTENT_ANALYZER_PROMPT
-from web_novel_gpt.prompts.rough_outline_prompt import ROUGH_OUTLINE_GENERATOR_PROMPT_V2
-from web_novel_gpt.schema import (
+from novel_genie.prompts.intent_analyzer_prompt import INTENT_ANALYZER_PROMPT
+from novel_genie.prompts.rough_outline_prompt import ROUGH_OUTLINE_GENERATOR_PROMPT_V2
+from novel_genie.schema import (
     Chapter,
     ChapterOutline,
     CheckpointType,
@@ -31,17 +31,17 @@ from web_novel_gpt.schema import (
     OutlineType,
     RoughOutline,
 )
-from web_novel_gpt.utils import extract_outline, parse_intent, save_checkpoint
+from novel_genie.utils import extract_outline, parse_intent, save_checkpoint
 
 
-class WebNovelGPT(BaseModel):
-    """Web novel generation main class."""
+class NovelGenie(BaseModel):
+    """Web novel generation engine."""
 
     llm: LLM = Field(default_factory=LLM)
     cost_tracker: Cost = Field(default_factory=Cost)
     novel_saver: NovelSaver = Field(default_factory=NovelSaver)
-    generation_config: WebNovelGenerationConfig = Field(
-        default_factory=WebNovelGenerationConfig
+    generation_config: NovelGenerationConfig = Field(
+        default_factory=NovelGenerationConfig
     )
 
     novel_id: Optional[str] = Field(None, exclude=True)
