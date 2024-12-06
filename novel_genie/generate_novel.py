@@ -96,12 +96,13 @@ class NovelGenie(BaseModel):
         """Generate detailed outline for a single chapter."""
         # Apply sliding window to get latest n detailed outlines from previous detailed outlines
         existing_detailed_outlines = (
-            self.volumes[self.current_volume_num - 1].detailed_outlines[
-                -self.generation_config.sliding_window_size :
-            ]
+            self.volumes[self.current_volume_num - 1].detailed_outlines
             if self.volumes
             else []
         )
+        existing_detailed_outlines = existing_detailed_outlines[
+            -self.generation_config.sliding_window_size :
+        ]
 
         # FIXME: rough_outline should be fix
         prompt = DETAILED_OUTLINE_GENERATOR_PROMPT_V2.format(
@@ -123,7 +124,9 @@ class NovelGenie(BaseModel):
     @save_checkpoint(CheckpointType.CHAPTER)
     async def generate_chapter(self) -> Chapter:
         """Generate a single chapter."""
-        existing_chapters = self.volumes[self.current_volume_num - 1].chapters
+        existing_chapters = (
+            self.volumes[self.current_volume_num - 1].chapters if self.volumes else []
+        )
         # Apply sliding window to get latest n chapters from previous chapters
         existing_chapters = existing_chapters[
             -self.generation_config.sliding_window_size :

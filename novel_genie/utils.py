@@ -263,7 +263,6 @@ def extract_outline(
             "character_system": ("character_system", False),
             "volume_design": ("volume_design", True),  # Now marked as a list
         },
-        OutlineType.VOLUME: {"volume_outline": ("volume_outline", False)},
         OutlineType.CHAPTER: {
             "chapter_overview": ("chapter_overview", False),
             "characters_content": ("characters_content", False),
