@@ -14,8 +14,8 @@ NovelGenie is an AI-powered web novel creation assistant that generates multi-vo
 
 2. Create and activate a virtual environment:
     ```sh
-    conda create -n webnovel python=3.10 -y
-    conda activate webnovel
+    conda create -n NovelGenie python=3.10 -y
+    conda activate NovelGenie
     ```
 
 3. Install dependencies:
@@ -42,10 +42,10 @@ from novel_genie.logger import logger
 
 
 async def main():
-   web_novel_gpt = NovelGenie()
+   novel_genie = NovelGenie()
    user_input = "An ordinary office worker accidentally obtains a system and begins their journey of workplace counterattack."
 
-   novel = await web_novel_gpt.generate_novel(user_input=user_input)
+   novel = await novel_genie.generate_novel(user_input=user_input)
    logger.info(f"Generated novel: \n{novel}")
 
 
@@ -63,10 +63,10 @@ from novel_genie.logger import logger
 
 
 async def main():
-   web_novel_gpt = NovelGenie()
+   novel_genie = NovelGenie()
    user_input = "An ordinary office worker accidentally obtains a system and begins their journey of workplace counterattack."
 
-   novel = await web_novel_gpt.generate_novel(user_input=user_input, resume_novel_id="your_novel_id")
+   novel = await novel_genie.generate_novel(user_input=user_input, resume_novel_id="your_novel_id")
    logger.info(f"Generated novel: \n{novel}")
 
 

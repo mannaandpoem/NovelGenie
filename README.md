@@ -14,8 +14,8 @@ NovelGenie 是一款智能网文创作助手，能够基于用户提供的创意
 
 2. 创建并激活虚拟环境：
     ```sh
-    conda create -n webnovel python=3.10 -y
-    conda activate webnovel
+    conda create -n NovelGenie python=3.10 -y
+    conda activate NovelGenie
     ```
 
 3. 安装依赖：
@@ -42,10 +42,10 @@ from novel_genie.logger import logger
 
 
 async def main():
-   web_novel_gpt = NovelGenie()
+   novel_genie = NovelGenie()
    user_input = "普通上班族意外获得系统，开始了自己的职场逆袭之路。"
 
-   novel = await web_novel_gpt.generate_novel(user_input=user_input)
+   novel = await novel_genie.generate_novel(user_input=user_input)
    logger.info(f"Generated novel: \n{novel}")
 
 
@@ -63,10 +63,10 @@ from novel_genie.logger import logger
 
 
 async def main():
-   web_novel_gpt = NovelGenie()
+   novel_genie = NovelGenie()
    user_input = "普通上班族意外获得系统，开始了自己的职场逆袭之路。"
 
-   novel = await web_novel_gpt.generate_novel(user_input=user_input, resume_novel_id="your_novel_id")
+   novel = await novel_genie.generate_novel(user_input=user_input, resume_novel_id="your_novel_id")
    logger.info(f"Generated novel: \n{novel}")
 
 
