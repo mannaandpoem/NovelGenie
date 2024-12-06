@@ -7,8 +7,17 @@ CONTENT_GENERATOR_PROMPT = """
 ## 指定章节
 {designated_chapter}
 
-## 网文粗纲
-{rough_outline}
+## 世界观设计
+{worldview_system}
+
+## 人物系统
+{character_system}
+
+## 网文卷纲
+{volume_design}
+
+## 网文章纲
+{chapter_outline}
 
 ## 网文细纲
 {detailed_outline}

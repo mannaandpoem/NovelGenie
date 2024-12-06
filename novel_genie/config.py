@@ -19,8 +19,8 @@ class LLMSettings(BaseModel):
     model: str = Field(..., description="模型名称")
     base_url: str = Field(..., description="API基础URL")
     api_key: str = Field(..., description="API密钥")
-    max_tokens: int = Field(1000, description="每个请求的最大token数")
-    temperature: float = Field(0.7, description="采样温度")
+    max_tokens: int = Field(4096, description="每个请求的最大token数")
+    temperature: float = Field(1.0, description="采样温度")
 
 
 class NovelSettings(BaseModel):
@@ -28,7 +28,8 @@ class NovelSettings(BaseModel):
 
     volume_count: int = Field(1, description="卷数")
     chapter_count_per_volume: int = Field(3, description="每卷章节数")
-    section_word_count: int = Field(1000, description="每节字数")
+    section_word_count: int = Field(2000, description="每节字数")
+    sliding_window_size: int = Field(5, description="滑动窗口大小")
     workspace: str = Field("workspace", description="工作目录")
 
 
@@ -87,16 +88,19 @@ class Config:
                 "model": raw_config.get("llm", {}).get("model"),
                 "base_url": raw_config.get("llm", {}).get("base_url"),
                 "api_key": raw_config.get("llm", {}).get("api_key"),
-                "max_tokens": raw_config.get("llm", {}).get("max_tokens", 1000),
-                "temperature": raw_config.get("llm", {}).get("temperature", 0.7),
+                "max_tokens": raw_config.get("llm", {}).get("max_tokens", 4096),
+                "temperature": raw_config.get("llm", {}).get("temperature", 1.0),
             },
             "novel": {
                 "volume_count": raw_config.get("novel", {}).get("volume_count", 1),
                 "section_word_count": raw_config.get("novel", {}).get(
-                    "section_word_count", 1000
+                    "section_word_count", 2000
                 ),
                 "chapter_count_per_volume": raw_config.get("novel", {}).get(
                     "chapter_count_per_volume", 3
+                ),
+                "sliding_window_size": raw_config.get("novel", {}).get(
+                    "sliding_window_size", 5
                 ),
                 "workspace": raw_config.get("novel", {}).get("workspace", "workspace"),
             },
@@ -128,6 +132,9 @@ class NovelGenerationConfig(BaseModel):
     volume_count: int = Field(default_factory=lambda: config.novel.volume_count)
     chapter_count_per_volume: int = Field(
         default_factory=lambda: config.novel.chapter_count_per_volume
+    )
+    sliding_window_size: int = Field(
+        default_factory=lambda: config.novel.sliding_window_size
     )
     workspace: str = Field(default_factory=lambda: config.novel.workspace)
 

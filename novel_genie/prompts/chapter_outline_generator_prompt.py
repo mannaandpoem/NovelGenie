@@ -10,8 +10,14 @@ CHAPTER_OUTLINE_GENERATOR_PROMPT = """
 ## 网文描述
 {description}
 
-## 网文粗纲
-{rough_outline}
+## 世界观设计
+{worldview_system}
+
+## 人物系统
+{character_system}
+
+## 当前的卷纲
+{volume_design}
 
 ## 已有的章纲
 {existing_chapter_outline}

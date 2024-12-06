@@ -1,7 +1,18 @@
 import json
 import re
 from functools import wraps
-from typing import Any, Awaitable, Callable, Dict, Optional, Tuple, TypeVar, Union, cast
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    TypeVar,
+    Union,
+    cast,
+)
 
 from pydantic import BaseModel
 
@@ -224,32 +235,48 @@ def extract_outline(
         ValueError: If required content is missing or outline_type is invalid.
     """
 
-    def extract_tag_content(tag: str) -> Optional[str]:
-        """Helper function to extract content between tags."""
-        pattern = f"<{tag}>(.*?)</{tag}>"
-        match = re.search(pattern, document, re.DOTALL)
-        return match.group(1).strip() if match else None
+    def extract_tag_content(
+        tag: str, is_list: bool = False
+    ) -> Union[str, List[str], None]:
+        """
+        Helper function to extract content between tags.
 
-    # Tag mappings for different outline types
+        Args:
+            tag (str): The tag name to extract content from.
+            is_list (bool): If True, extracts multiple instances of the tag as a list.
+
+        Returns:
+            Union[str, List[str], None]: Extracted content as string or list of strings.
+        """
+        pattern = f"<{tag}>(.*?)</{tag}>"
+        if is_list:
+            matches = re.finditer(pattern, document, re.DOTALL)
+            return [match.group(1).strip() for match in matches] if matches else None
+        else:
+            match = re.search(pattern, document, re.DOTALL)
+            return match.group(1).strip() if match else None
+
+    # Tag mappings for different outline types with type hints
     tag_mappings = {
         OutlineType.ROUGH: {
-            "worldview_system": "worldview_system",
-            "character_system": "character_system",
-            "plot_design": "plot_design",
+            "worldview_system": ("worldview_system", False),
+            "character_system": ("character_system", False),
+            "volume_design": ("volume_design", True),  # Now marked as a list
         },
+        OutlineType.VOLUME: {"volume_outline": ("volume_outline", False)},
         OutlineType.CHAPTER: {
-            "chapter_overview": "chapter_overview",
-            "characters_content": "characters_content",
+            "chapter_overview": ("chapter_overview", False),
+            "characters_content": ("characters_content", False),
         },
-        OutlineType.DETAILED: {"storyline": "storyline"},
+        OutlineType.DETAILED: {"storyline": ("storyline", False)},
     }
 
     # Extract content based on outline type
     content = {}
-    for key, t in tag_mappings[outline_type].items():
-        extracted_content = extract_tag_content(t)
+    for key, (tag, is_list) in tag_mappings[outline_type].items():
+        extracted_content = extract_tag_content(tag, is_list)
         if extracted_content is None:
-            raise ValueError(f"Required content '{t}' not found in document")
+            raise ValueError(f"Required content '{tag}' not found in document")
         content[key] = extracted_content
 
     # Create appropriate outline object based on type

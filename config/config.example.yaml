@@ -9,4 +9,5 @@ novel:
   volume_count: 1  # number of volumes to use
   chapter_count_per_volume: 3  # number of chapters per volume
   section_word_count: 2000  # word count for each section
+  sliding_window_size: 5 # sliding window size for chapter outline, detailed outline and chapter generation
   workspace: "workspace"  # novel storage directory

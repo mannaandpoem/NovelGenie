@@ -44,6 +44,7 @@ class NovelGenie(BaseModel):
         default_factory=NovelGenerationConfig
     )
 
+    user_input: Optional[str] = Field(None, exclude=True)
     novel_id: Optional[str] = Field(None, exclude=True)
     intent: Optional[NovelIntent] = Field(None, exclude=True)
 
@@ -64,10 +65,10 @@ class NovelGenie(BaseModel):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         return f"{description[:5]}_{timestamp}"
 
-    async def analyze_intent(self, user_input: str) -> NovelIntent:
+    async def analyze_intent(self) -> NovelIntent:
         """Analyze user input to extract story details."""
         logger.info("Analyzing user input to extract story details")
-        prompt = INTENT_ANALYZER_PROMPT.format(user_input=user_input)
+        prompt = INTENT_ANALYZER_PROMPT.format(user_input=self.user_input)
         response = await self.llm.ask(prompt)
         title, description, genre = parse_intent(response)
         return NovelIntent(
@@ -76,11 +77,11 @@ class NovelGenie(BaseModel):
             genre=genre,
         )
 
-    async def generate_rough_outline(self, user_input: str) -> RoughOutline:
+    async def generate_rough_outline(self) -> RoughOutline:
         """Generate rough outline based on story intent."""
         logger.info(f"Generating rough outline for novel '{self.intent.title}'")
         prompt = ROUGH_OUTLINE_GENERATOR_PROMPT_V2.format(
-            user_input=user_input,
+            user_input=self.user_input,
             title=self.intent.title,
             genre=self.intent.genre,
             description=self.intent.description,
@@ -93,36 +94,49 @@ class NovelGenie(BaseModel):
         self, prev_volume_summary: Optional[str] = None
     ) -> DetailedOutline:
         """Generate detailed outline for a single chapter."""
+        # Apply sliding window to get latest n detailed outlines from previous detailed outlines
+        existing_detailed_outlines = (
+            self.volumes[self.current_volume_num - 1].detailed_outlines[
+                -self.generation_config.sliding_window_size :
+            ]
+            if self.volumes
+            else []
+        )
+
         # FIXME: rough_outline should be fix
         prompt = DETAILED_OUTLINE_GENERATOR_PROMPT_V2.format(
             designated_volume=self.current_volume_num,
             designated_chapter=self.current_chapter_num,
             description=self.intent.description,
             rough_outline=str(self.rough_outline),
+            worldview_system=self.rough_outline.worldview_system,
+            character_system=self.rough_outline.character_system,
+            volume_design=self.rough_outline.volume_design[self.current_volume_num - 1],
             section_word_count=self.generation_config.section_word_count,
             prev_volume_summary=prev_volume_summary,
             chapter_outline=self.chapter_outline,
-            existing_detailed_outline="\n\n".join(
-                [
-                    detailed_outline
-                    for detailed_outline in self.volumes[
-                        self.current_volume_num - 1
-                    ].detailed_outlines
-                ]
-            ),
+            existing_detailed_outline="\n\n".join(existing_detailed_outlines),
         )
         response = await self.llm.ask(prompt)
         return extract_outline(response, OutlineType.DETAILED)
 
     @save_checkpoint(CheckpointType.CHAPTER)
-    async def generate_chapter(self, existing_chapters: List[Chapter]) -> Chapter:
+    async def generate_chapter(self) -> Chapter:
         """Generate a single chapter."""
+        existing_chapters = self.volumes[self.current_volume_num - 1].chapters
+        # Apply sliding window to get latest n chapters from previous chapters
+        existing_chapters = existing_chapters[
+            -self.generation_config.sliding_window_size :
+        ]
         chapters = [
             f"{chapter.title}\n{chapter.content}" for chapter in existing_chapters
         ]
         prompt = CONTENT_GENERATOR_PROMPT.format(
             designated_chapter=self.current_chapter_num,
-            rough_outline=str(self.rough_outline),
+            worldview_system=self.rough_outline.worldview_system,
+            character_system=self.rough_outline.character_system,
+            volume_design=self.rough_outline.volume_design[self.current_volume_num - 1],
+            chapter_outline=self.chapter_outline,
             detailed_outline=self.detailed_outline,
             section_word_count=self.generation_config.section_word_count,
             chapters="\n\n".join(chapters),
@@ -146,20 +160,25 @@ class NovelGenie(BaseModel):
         self, prev_volume_summary: Optional[str] = None
     ) -> ChapterOutline:
         """Generate chapter outline for a volume."""
+        existing_chapter_outlines = (
+            self.volumes[self.current_volume_num - 1].chapter_outlines
+            if self.volumes
+            else []
+        )
+        # Apply sliding window to get latest n chapter outlines from previous chapter outlines
+        existing_chapter_outline = existing_chapter_outlines[
+            -self.generation_config.sliding_window_size :
+        ]
+
         prompt = CHAPTER_OUTLINE_GENERATOR_PROMPT.format(
             designated_volume=self.current_volume_num,
             designated_chapter=self.current_chapter_num,
             description=self.intent.description,
-            rough_outline=str(self.rough_outline),
+            worldview_system=self.rough_outline.worldview_system,
+            character_system=self.rough_outline.character_system,
+            volume_design=self.rough_outline.volume_design[self.current_volume_num - 1],
             section_word_count=self.generation_config.section_word_count,
-            existing_chapter_outline="\n\n".join(
-                [
-                    chapter_outline
-                    for chapter_outline in self.volumes[
-                        self.current_volume_num - 1
-                    ].chapter_outlines
-                ]
-            ),
+            existing_chapter_outline="\n\n".join(existing_chapter_outline),
             prev_volume_summary=prev_volume_summary,
         )
         response = await self.llm.ask(prompt)
@@ -217,14 +236,13 @@ class NovelGenie(BaseModel):
         volume.detailed_outlines.append(self.detailed_outline)
 
         # Generate current chapter
-        chapter = await self.generate_chapter(volume.chapters)
+        chapter = await self.generate_chapter()
         volume.chapters.append(chapter)
 
     async def generate_volumes(self) -> List[NovelVolume]:
         """Generate volumes for the novel."""
         volumes: List[NovelVolume] = []
         start_volume = self.current_volume_num or 1
-        # for volume_num in range(self.generation_config.volume_count):
         for volume_num in range(start_volume, self.generation_config.volume_count + 1):
             self.current_volume_num = volume_num
             volume = await self.generate_volume()
@@ -245,12 +263,13 @@ class NovelGenie(BaseModel):
             self.novel_id = resume_novel_id
             return await self._resume_generation()
 
+        self.user_input = user_input
         logger.info("Starting new novel generation")
 
-        self.intent = await self.analyze_intent(user_input) if not intent else intent
+        self.intent = await self.analyze_intent() if not intent else intent
 
         self.novel_id = self.generate_novel_id(self.intent.description)
-        self.rough_outline = await self.generate_rough_outline(user_input)
+        self.rough_outline = await self.generate_rough_outline()
 
         self.volumes = await self.generate_volumes()
 

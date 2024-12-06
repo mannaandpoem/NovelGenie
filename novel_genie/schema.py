@@ -39,7 +39,7 @@ class RoughOutline(OutlineBase):
     outline_type: OutlineType = OutlineType.ROUGH
     worldview_system: str = Field(..., min_length=10)
     character_system: str = Field(..., min_length=10)
-    plot_design: str = Field(..., min_length=10)
+    volume_design: list = Field(default_factory=list)
 
 
 class ChapterOutline(OutlineBase):

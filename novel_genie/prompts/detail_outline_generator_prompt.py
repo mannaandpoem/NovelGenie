@@ -144,8 +144,14 @@ DETAILED_OUTLINE_GENERATOR_PROMPT_V2 = """
 ## 网文描述
 {description}
 
-## 网文粗纲
-{rough_outline}
+## 世界观设计
+{worldview_system}
+
+## 人物系统
+{character_system}
+
+## 网文卷纲
+{volume_design}
 
 ## 网文章纲
 {chapter_outline}
