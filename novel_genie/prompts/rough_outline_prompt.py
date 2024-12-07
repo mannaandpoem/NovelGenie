@@ -280,12 +280,13 @@ ROUGH_OUTLINE_GENERATOR_PROMPT_V2 = """
 4. 叙事结构：确保故事有清晰的主线和支线，设定合理的起承转合，推动情节自然发展。
 
 ## 用户输入信息
-请严格遵守用户指定的卷数要求。
+请严格遵守用户指定的卷数和章数要求。
 - 用户需求：{user_input}
 - 作品名称：{title}
 - 作品类型：{genre}
 - 作品描述：{description}
 - 计划卷数：{volume_count}
+- 每卷章数：{chapter_count_per_volume}
 
 ## 输出格式
 

@@ -92,6 +92,7 @@ class NovelGenie(BaseModel):
             genre=self.intent.genre,
             description=self.intent.description,
             volume_count=self.generation_config.volume_count,
+            chapter_count_per_volume=self.generation_config.chapter_count_per_volume,
         )
         response = await self.llm.ask(prompt)
         return extract_outline(response, OutlineType.ROUGH)
