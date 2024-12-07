@@ -224,6 +224,9 @@ class NovelGenie(BaseModel):
         end_chapter = self.current_volume_num * chapter_count_per_volume
         for chapter_num in range(start_chapter, end_chapter + 1):
             self.current_chapter_num = chapter_num
+            logger.info(
+                f"Generating chapter {self.current_chapter_num} for volume {self.current_volume_num}"
+            )
             await self._generate_single_chapter(
                 volume=volume, prev_volume_summary=prev_volume_summary
             )
@@ -255,6 +258,7 @@ class NovelGenie(BaseModel):
         # Generate current chapter
         chapter = await self.generate_chapter()
         if self.generation_config.need_optimize:
+            logger.info(f"Optimizing content for chapter {chapter.title}")
             chapter = await self.optimize_chapter_content(chapter)
 
         volume.chapters.append(chapter)
@@ -265,6 +269,7 @@ class NovelGenie(BaseModel):
         start_volume = self.current_volume_num or 1
         for volume_num in range(start_volume, self.generation_config.volume_count + 1):
             self.current_volume_num = volume_num
+            logger.info(f"Starting generation of volume {self.current_volume_num}")
             volume = await self.generate_volume()
             volumes.append(volume)
 
@@ -286,9 +291,15 @@ class NovelGenie(BaseModel):
         self.user_input = user_input
         logger.info("Starting new novel generation")
 
+        logger.info("Analyzing user input to extract story details")
         self.intent = await self.analyze_intent() if not intent else intent
 
         self.novel_id = self.generate_novel_id(self.intent.description)
+        logger.info(
+            f"Generating novel ID for description: {self.intent.description[:5]}"
+        )
+
+        logger.info(f"Generating rough outline for novel '{self.intent.title}'")
         self.rough_outline = await self.generate_rough_outline()
 
         self.volumes = await self.generate_volumes()
@@ -309,6 +320,7 @@ class NovelGenie(BaseModel):
         if not checkpoint_data:
             raise ValueError(f"No checkpoint found for novel {self.novel_id}")
 
+        logger.info(f"Resuming novel generation for novel ID {self.novel_id}")
         try:
             # Restore instance variables
             self.intent = (
@@ -367,6 +379,7 @@ class NovelGenie(BaseModel):
         detailed_outline: str,
     ) -> str:
         """Generate summary of detailed outline."""
+        logger.info(f"Generating detailed outline summary for volume {volume_num}")
         prompt = DETAILED_OUTLINE_SUMMARY_PROMPT.format(
             volume_num=volume_num,
             rough_outline=rough_outline,
