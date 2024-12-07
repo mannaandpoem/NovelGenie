@@ -31,7 +31,13 @@ from novel_genie.schema import (
     OutlineType,
     RoughOutline,
 )
-from novel_genie.utils import extract_outline, parse_intent, save_checkpoint
+from novel_genie.utils import (
+    extract_commands_from_response,
+    extract_outline,
+    parse_intent,
+    process_edit_commands,
+    save_checkpoint,
+)
 
 
 class NovelGenie(BaseModel):
@@ -151,12 +157,17 @@ class NovelGenie(BaseModel):
         content = response.replace(title, "").strip()
         return Chapter(title=title, content=content)
 
-    async def _optimize_chapter_content(self, chapter_content: str) -> str:
+    async def optimize_chapter_content(self, chapter_content: str) -> str:
         """Optimize a single chapter."""
         prompt = CONTENT_OPTIMIZER_PROMPT.format(
             original_chapter_content=chapter_content
         )
-        return await self.llm.ask(prompt)
+        rsp = await self.llm.ask(prompt)
+        commands = extract_commands_from_response(rsp)
+
+        # 应用编辑命令
+        modified_content = process_edit_commands(chapter_content, commands)
+        return modified_content
 
     async def generate_chapter_outline(
         self, prev_volume_summary: Optional[str] = None
@@ -241,7 +252,8 @@ class NovelGenie(BaseModel):
         # Generate current chapter
         chapter = await self.generate_chapter()
         if self.generation_config.need_optimize:
-            await self._optimize_chapter_content(chapter.content)
+            modified_content = await self.optimize_chapter_content(chapter.content)
+            chapter.content = modified_content
 
         volume.chapters.append(chapter)
 
