@@ -157,17 +157,19 @@ class NovelGenie(BaseModel):
         content = response.replace(title, "").strip()
         return Chapter(title=title, content=content)
 
-    async def optimize_chapter_content(self, chapter_content: str) -> str:
+    @save_checkpoint(CheckpointType.CHAPTER)
+    async def optimize_chapter_content(self, chapter: Chapter) -> Chapter:
         """Optimize a single chapter."""
         prompt = CONTENT_OPTIMIZER_PROMPT.format(
-            original_chapter_content=chapter_content
+            original_chapter_content=chapter.content
         )
         rsp = await self.llm.ask(prompt)
         commands = extract_commands_from_response(rsp)
 
         # 应用编辑命令
-        modified_content = process_edit_commands(chapter_content, commands)
-        return modified_content
+        modified_content = process_edit_commands(chapter.content, commands)
+        chapter.content = modified_content
+        return chapter
 
     async def generate_chapter_outline(
         self, prev_volume_summary: Optional[str] = None
@@ -252,8 +254,7 @@ class NovelGenie(BaseModel):
         # Generate current chapter
         chapter = await self.generate_chapter()
         if self.generation_config.need_optimize:
-            modified_content = await self.optimize_chapter_content(chapter.content)
-            chapter.content = modified_content
+            chapter = await self.optimize_chapter_content(chapter)
 
         volume.chapters.append(chapter)
 

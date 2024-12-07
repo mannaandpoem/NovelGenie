@@ -111,7 +111,7 @@ NOVEL_THINKING_PROTOCOL_PROMPT = """
   - 设计情感发展的关键节点
   - 规划故事推进的节奏和爽点
 
-  思考过程必须记录在代码块中，标注`thinking`：
+  思考过程必须记录在代码块中，直接以标注```thinking````的回复格式开头进行思考。
 
   ```thinking
   这里是内部思考过程
@@ -163,7 +163,7 @@ NOVEL_THINKING_PROTOCOL_PROMPT = """
 
   <创作目标>
     创作出人物立体、关系精彩、情感真挚、故事吸引的网文内容。
-    注意：思考过程必须在带`thinking`标签的代码块中记录。而输出具体创作内容时，需要以其他指定的标签格式输出。
+    注意：思考过程必须在带```thinking```标签的代码块中记录。
   </创作目标>
 
 </novel_thinking_protocol>

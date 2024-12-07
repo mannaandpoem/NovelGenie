@@ -1,4 +1,3 @@
-import asyncio
 from typing import Optional
 
 import openai
@@ -6,6 +5,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from novel_genie.config import LLMSettings, config
 from novel_genie.prompts.system_prompt import SYSTEM_PROMPT
+from novel_genie.utils import filter_thinking_blocks
 
 
 class LLM(BaseModel):
@@ -37,6 +37,7 @@ class LLM(BaseModel):
             **data
         )
 
+    @filter_thinking_blocks()
     async def ask(
         self, prompt: str, stream: bool = True, system_prompt: str = SYSTEM_PROMPT
     ) -> str:
@@ -81,14 +82,3 @@ class LLM(BaseModel):
 
         # Return the complete message
         return "".join(collected_messages).strip()
-
-
-# Example usage
-if __name__ == "__main__":
-
-    async def main():
-        llm = LLM()
-        response = await llm.ask("Write a hello world program in Python.")
-        print("\n\nResponse:", response)
-
-    asyncio.run(main())

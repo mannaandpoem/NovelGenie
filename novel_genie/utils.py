@@ -1,6 +1,20 @@
+import ast
+import inspect
 import json
+import re
 from functools import wraps
-from typing import Any, Awaitable, Callable, Dict, Optional, Tuple, TypeVar, Union, cast
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    TypeVar,
+    Union,
+    cast,
+)
 
 from pydantic import BaseModel
 
@@ -26,48 +40,95 @@ def save_output(content: str, file_path: str) -> None:
         f.write(content)
 
 
-import ast
-import re
-from typing import List
-
-
-def extract_code_content(response: str, language: str = None) -> str:
+def extract_code_content(
+    response: str, language: str = "", filter_others: bool = True
+) -> str:
     """
-    Extract code content from LLM response, supporting multiple formats including JSON and Python.
+    提取或移除响应中的代码块，基于指定的语言和过滤标志。
 
     Args:
-        response (str): Raw response from LLM
-        language (str, optional): Expected language/format (e.g., 'json', 'python').
-                                  If None, tries to detect automatically.
+        response (str): 包含代码块的原始响应。
+        language (str, optional): 要过滤的语言。如果为空，则根据 `filter_others` 处理所有代码块。
+        filter_others (bool, optional):
+            - 如果为 True:
+                - 保留指定语言的代码块。
+                - 如果 `language` 为空，保留没有语言标识符的纯代码块。
+            - 如果为 False:
+                - 移除指定语言的代码块。
+                - 如果 `language` 为空，移除所有代码块。
 
     Returns:
-        str: Cleaned code content string
+        str: 过滤后的响应内容。
     """
-    # Pattern to capture code blocks with optional language specifier
-    code_block_pattern = r"```(?:\w+)?\s*([\s\S]*?)\s*```"
-    block_matches = re.finditer(code_block_pattern, response)
+    # 定义支持的语言
+    supported_languages = {"", "thinking", "python", "json"}
 
-    for match in block_matches:
-        content = match.group(1).strip()
-        if language:
-            lang_pattern = rf"```{language}\s*([\s\S]*?)\s*```"
-            if re.match(lang_pattern, match.group(0), re.IGNORECASE):
-                return content
+    # 输入验证
+    if not isinstance(response, str):
+        raise TypeError("Response must be a string")
+    if not isinstance(language, str):
+        raise TypeError("Language must be a string")
+    if not isinstance(filter_others, bool):
+        raise TypeError("filter_others must be a boolean")
+
+    language = language.lower()
+    if language not in supported_languages:
+        raise ValueError(
+            f"Language must be one of: {', '.join(repr(l) for l in supported_languages)}"
+        )
+
+    # 正则表达式匹配代码块
+    # 捕获可选的语言标识符和代码内容
+    block_pattern = r"```(?P<lang>\w+)?\n?(?P<content>[\s\S]*?)```"
+
+    # 查找所有代码块
+    blocks = list(re.finditer(block_pattern, response))
+
+    if not blocks:
+        return response.strip()  # 如果没有代码块，返回原始响应
+
+    # 初始化新响应的列表
+    new_response = []
+    last_pos = 0  # 记录上一个匹配结束的位置
+
+    # 遍历所有代码块
+    for match in blocks:
+        start, end = match.span()
+        block_lang = (match.group("lang") or "").lower()
+        block_content = match.group("content").strip()
+
+        # 将代码块之前的文本添加到新响应中
+        new_response.append(response[last_pos:start])
+
+        if filter_others:
+            if language:
+                # 保留指定语言的代码块内容
+                if block_lang == language:
+                    new_response.append(block_content)
+                # 否则移除代码块（不添加任何内容）
+            else:
+                # 保留没有语言标识符的纯代码块内容
+                if not block_lang:
+                    new_response.append(block_content)
+                # 否则移除代码块
         else:
-            if content:
-                return content
+            if language:
+                # 移除指定语言的代码块，保留其他代码块（包括标识符）
+                if block_lang != language:
+                    new_response.append(match.group(0))  # 保留整个代码块
+                # 否则移除代码块（不添加任何内容）
+            else:
+                # 移除所有代码块
+                pass  # 不添加任何内容
 
-    # Fallback: attempt to find JSON or Python literals outside code blocks
-    if not language or language.lower() == "json":
-        json_match = re.search(r"(\{[\s\S]*\}|\[[\s\S]*\])", response)
-        if json_match:
-            return json_match.group(1).strip()
-    elif language.lower() == "python":
-        python_match = re.search(r"(?:\[.*\])", response, re.DOTALL)
-        if python_match:
-            return python_match.group(1).strip()
+        # 更新上一个匹配结束的位置
+        last_pos = end
 
-    return response.strip()
+    # 添加最后一个代码块之后的文本
+    new_response.append(response[last_pos:])
+
+    # 连接所有部分并返回
+    return "".join(new_response).strip()
 
 
 def extract_commands_from_response(response_text: str) -> List[str]:
@@ -236,7 +297,7 @@ def parse_intent(response: str) -> Tuple[str, str, str]:
     Returns:
         Tuple[str, str, str]: (description, genre, word_count)
     """
-    intent = extract_code_content(response)
+    intent = extract_code_content(response, language="json")
     intent_json = json.loads(intent)
     return (
         intent_json.get("title"),
@@ -367,3 +428,47 @@ def extract_outline(
         return DetailedOutline(**content)
     else:
         raise ValueError(f"Invalid outline type: {outline_type}")
+
+
+def filter_thinking_blocks() -> (
+    Callable[
+        [Callable[..., Union[str, Awaitable[str]]]],
+        Callable[..., Union[str, Awaitable[str]]],
+    ]
+):
+    """
+    Decorator that removes `thinking` language code blocks from function return values.
+    Supports both synchronous and asynchronous functions.
+
+    Returns:
+        Callable: Decorated function that automatically filters `thinking` code blocks from the return value.
+    """
+
+    def decorator(
+        func: Callable[..., Union[str, Awaitable[str]]]
+    ) -> Callable[..., Union[str, Awaitable[str]]]:
+        @wraps(func)
+        async def async_wrapper(*args: Any, **kwargs: Any) -> str:
+            result = await func(*args, **kwargs)
+            # If there are no 'thinking' code blocks, return the result as is
+            if "```thinking" not in result:
+                return result
+            # Remove the 'thinking' blocks and return the cleaned result
+            return extract_code_content(
+                result, language="thinking", filter_others=False
+            )
+
+        @wraps(func)
+        def sync_wrapper(*args: Any, **kwargs: Any) -> str:
+            result = func(*args, **kwargs)
+            # If there are no 'thinking' code blocks, return the result as is
+            if "```thinking" not in result:
+                return result
+            # Remove the 'thinking' blocks and return the cleaned result
+            return extract_code_content(
+                result, language="thinking", filter_others=False
+            )
+
+        return async_wrapper if inspect.iscoroutinefunction(func) else sync_wrapper
+
+    return decorator
