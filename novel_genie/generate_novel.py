@@ -11,7 +11,7 @@ from novel_genie.logger import logger
 from novel_genie.prompts.chapter_outline_generator_prompt import (
     CHAPTER_OUTLINE_GENERATOR_PROMPT,
 )
-from novel_genie.prompts.content_generator_prompt import CONTENT_GENERATOR_PROMPT
+from novel_genie.prompts.content_generator_prompt import CONTENT_GENERATOR_PROMPT_V2
 from novel_genie.prompts.content_optimizer_prompt import CONTENT_OPTIMIZER_PROMPT
 from novel_genie.prompts.detail_outline_generator_prompt import (
     DETAILED_OUTLINE_GENERATOR_PROMPT_V2,
@@ -134,7 +134,8 @@ class NovelGenie(BaseModel):
         chapters = [
             f"{chapter.title}\n{chapter.content}" for chapter in existing_chapters
         ]
-        prompt = CONTENT_GENERATOR_PROMPT.format(
+        prompt = CONTENT_GENERATOR_PROMPT_V2.format(
+            description=self.intent.description,
             designated_chapter=self.current_chapter_num,
             worldview_system=self.rough_outline.worldview_system,
             character_system=self.rough_outline.character_system,
@@ -146,7 +147,7 @@ class NovelGenie(BaseModel):
         )
         response = await self.llm.ask(prompt)
         # Extract chapter title and content
-        title = re.search(r"## 第[0-9]+章 .+", response).group()
+        title = re.search(r"## 第[0-9零一二三四五六七八九]+章 .+", response).group()
         content = response.replace(title, "").strip()
         return Chapter(title=title, content=content)
 
@@ -174,6 +175,7 @@ class NovelGenie(BaseModel):
         ]
 
         prompt = CHAPTER_OUTLINE_GENERATOR_PROMPT.format(
+            user_input=self.user_input,
             designated_volume=self.current_volume_num,
             designated_chapter=self.current_chapter_num,
             description=self.intent.description,

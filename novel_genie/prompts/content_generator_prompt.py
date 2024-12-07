@@ -124,20 +124,31 @@ CONTENT_GENERATOR_PROMPT_V2 = """
 # 网文章节生成器
 本模板旨在帮助大语言模型在生成章节内容时减少抽象与概括性表述，更多地采用具体描写。请通过细节、场景感、情感浓度和人物互动，将读者自然带入故事情境中。章节应充满实感性的文字，避免空洞的叙述性总结，以人物为核心，让他们的行动、情感、对话、心理活动与环境细节融汇，呈现出鲜活且富有层次的故事片段。
 
-# 用户输入
+# 输入
 
 ## 指定章节
 {designated_chapter}
 
-## 网文粗纲
-{rough_outline}
+## 网文描述
+{description}
+
+## 世界观设计
+{worldview_system}
+
+## 人物系统
+{character_system}
+
+## 网文卷纲
+{volume_design}
+
+## 网文章纲
+{chapter_outline}
 
 ## 网文细纲
 {detailed_outline}
 
 ## 已有章节
 {chapters}
-
 ---
 # 创作核心框架
 

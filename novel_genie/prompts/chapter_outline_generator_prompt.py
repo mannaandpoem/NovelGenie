@@ -14,6 +14,9 @@ CHAPTER_OUTLINE_GENERATOR_PROMPT = """
 ## 指定分卷章节
 第 {designated_volume} 卷-第 {designated_chapter} 章
 
+## 用户需求
+{user_input}
+
 ## 网文描述
 {description}
 
@@ -71,7 +74,13 @@ CHAPTER_OUTLINE_GENERATOR_PROMPT = """
 - 情绪基础：延续自上章的人物情绪基底
 - 情感触发：本章事件或互动引发的情绪变化来源
 - 情绪递进：情感在此过程中进一步激化、沉淀或转折
-- 内心关注：本章人物内在的心理焦点、隐忧与期盼
+- 情感结果：情感变化带来的影响
+
+3. 剧情走向
+- 主线推进：本章对主线剧情的推进点
+- 支线发展：需要铺垫或推进的支线内容
+- 悬念设置：需要埋下的伏笔或悬念
+</characters_content>
 
 # 写作要点
 
