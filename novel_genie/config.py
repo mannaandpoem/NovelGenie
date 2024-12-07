@@ -30,6 +30,7 @@ class NovelSettings(BaseModel):
     chapter_count_per_volume: int = Field(3, description="每卷章节数")
     section_word_count: int = Field(2000, description="每节字数")
     sliding_window_size: int = Field(5, description="滑动窗口大小")
+    need_optimize: bool = Field(False, description="是否需要优化章节内容")
     workspace: str = Field("workspace", description="工作目录")
 
 
@@ -102,6 +103,9 @@ class Config:
                 "sliding_window_size": raw_config.get("novel", {}).get(
                     "sliding_window_size", 5
                 ),
+                "need_optimize": raw_config.get("novel", {}).get(
+                    "need_optimize", False
+                ),
                 "workspace": raw_config.get("novel", {}).get("workspace", "workspace"),
             },
         }
@@ -136,6 +140,7 @@ class NovelGenerationConfig(BaseModel):
     sliding_window_size: int = Field(
         default_factory=lambda: config.novel.sliding_window_size
     )
+    need_optimize: bool = Field(default_factory=lambda: config.novel.need_optimize)
     workspace: str = Field(default_factory=lambda: config.novel.workspace)
 
 

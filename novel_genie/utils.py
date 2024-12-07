@@ -1,18 +1,6 @@
 import json
-import re
 from functools import wraps
-from typing import (
-    Any,
-    Awaitable,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Tuple,
-    TypeVar,
-    Union,
-    cast,
-)
+from typing import Any, Awaitable, Callable, Dict, Optional, Tuple, TypeVar, Union, cast
 
 from pydantic import BaseModel
 
@@ -38,23 +26,115 @@ def save_output(content: str, file_path: str) -> None:
         f.write(content)
 
 
-def json_parse(response: str) -> str:
+import ast
+import re
+from typing import List
+
+
+def extract_code_content(response: str, language: str = None) -> str:
     """
-    Extract JSON string from LLM response.
+    Extract code content from LLM response, supporting multiple formats including JSON and Python.
 
     Args:
         response (str): Raw response from LLM
+        language (str, optional): Expected language/format (e.g., 'json', 'python').
+                                  If None, tries to detect automatically.
 
     Returns:
-        str: Cleaned JSON string
+        str: Cleaned code content string
     """
-    # Try to find JSON pattern in the response
-    json_pattern = r"\{[\s\S]*\}"
-    match = re.search(json_pattern, response)
+    # Pattern to capture code blocks with optional language specifier
+    code_block_pattern = r"```(?:\w+)?\s*([\s\S]*?)\s*```"
+    block_matches = re.finditer(code_block_pattern, response)
 
-    if match:
-        return match.group()
-    return response
+    for match in block_matches:
+        content = match.group(1).strip()
+        if language:
+            lang_pattern = rf"```{language}\s*([\s\S]*?)\s*```"
+            if re.match(lang_pattern, match.group(0), re.IGNORECASE):
+                return content
+        else:
+            if content:
+                return content
+
+    # Fallback: attempt to find JSON or Python literals outside code blocks
+    if not language or language.lower() == "json":
+        json_match = re.search(r"(\{[\s\S]*\}|\[[\s\S]*\])", response)
+        if json_match:
+            return json_match.group(1).strip()
+    elif language.lower() == "python":
+        python_match = re.search(r"(?:\[.*\])", response, re.DOTALL)
+        if python_match:
+            return python_match.group(1).strip()
+
+    return response.strip()
+
+
+def extract_commands_from_response(response_text: str) -> List[str]:
+    """
+    Extract the commands list from the response text.
+
+    Args:
+        response_text (str): The raw response text containing commands
+
+    Returns:
+        list: List of edit commands
+    """
+    # Extract the code content assuming it's Python code
+    code_content = extract_code_content(response_text, language="python")
+
+    try:
+        # Safely evaluate the Python list using ast.literal_eval
+        # Find the cmds list assignment
+        cmds_match = re.search(r"cmds\s*=\s*(\[[\s\S]*\])", code_content)
+        if not cmds_match:
+            raise ValueError("No 'cmds' list found in the code content.")
+
+        cmds_str = cmds_match.group(1)
+        cmds = ast.literal_eval(cmds_str)
+        if not isinstance(cmds, list):
+            raise ValueError("'cmds' is not a list.")
+        return cmds
+    except Exception as e:
+        raise ValueError(f"Error parsing commands: {e}")
+
+
+def process_edit_commands(original_content: str, commands: List[str]) -> str:
+    """
+    Apply multiple edit commands to the original text content.
+
+    Args:
+        original_content (str): The original text content
+        commands (list): List of edit commands in the format:
+                        ["edit start:end <<EOF\nnew content\nEOF", ...]
+
+    Returns:
+        str: Modified text content after applying all edits
+    """
+    lines = original_content.splitlines()
+
+    parsed_commands = []
+    for cmd in commands:
+        # Regex to parse the edit command
+        match = re.match(r"edit\s+(\d+):(\d+)\s+<<EOF\s*\n([\s\S]*?)\nEOF", cmd.strip())
+        if match:
+            start_line = int(match.group(1))
+            end_line = int(match.group(2))
+            replacement = match.group(3).split("\n")
+            parsed_commands.append((start_line, end_line, replacement))
+        else:
+            raise ValueError(f"Invalid edit command format: {cmd}")
+
+    # Sort commands by start_line in descending order to avoid line number shifts
+    parsed_commands.sort(key=lambda x: x[0], reverse=True)
+
+    for start, end, replacement in parsed_commands:
+        if start < 1 or end > len(lines):
+            raise IndexError(f"Edit range {start}:{end} is out of bounds.")
+        # Replace the specified range with the replacement lines
+        lines[start - 1 : end] = replacement
+
+    return "\n".join(lines)
 
 
 def save_checkpoint(checkpoint_type: CheckpointType):
@@ -156,7 +236,7 @@ def parse_intent(response: str) -> Tuple[str, str, str]:
     Returns:
         Tuple[str, str, str]: (description, genre, word_count)
     """
-    intent = json_parse(response)
+    intent = extract_code_content(response)
     intent_json = json.loads(intent)
     return (
         intent_json.get("title"),

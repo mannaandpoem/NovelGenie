@@ -151,12 +151,10 @@ class NovelGenie(BaseModel):
         content = response.replace(title, "").strip()
         return Chapter(title=title, content=content)
 
-    @save_checkpoint(CheckpointType.CHAPTER)
-    async def _optimize_chapter(self, chapter: str) -> str:
+    async def _optimize_chapter_content(self, chapter_content: str) -> str:
         """Optimize a single chapter."""
         prompt = CONTENT_OPTIMIZER_PROMPT.format(
-            chapter_content=chapter,
-            section_word_count=self.generation_config.section_word_count,
+            original_chapter_content=chapter_content
         )
         return await self.llm.ask(prompt)
 
@@ -242,6 +240,9 @@ class NovelGenie(BaseModel):
 
         # Generate current chapter
         chapter = await self.generate_chapter()
+        if self.generation_config.need_optimize:
+            await self._optimize_chapter_content(chapter.content)
+
         volume.chapters.append(chapter)
 
     async def generate_volumes(self) -> List[NovelVolume]:
