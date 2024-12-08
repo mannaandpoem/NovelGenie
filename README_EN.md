@@ -21,6 +21,8 @@ NovelGenie is an AI-powered web novel creation assistant that generates multi-vo
 3. Install dependencies:
     ```sh
     pip install -r requirements.txt
+    or
+    pip install -e .
     ```
 
 ## Usage
@@ -32,7 +34,8 @@ Before using, please check `config.example.yaml` and create and configure your `
 1. Open the `config.example.yaml` file to understand the meaning of each configuration item.
 2. Create a new `config.yaml` file and configure it according to the examples in `config.example.yaml`.
 
-### Generate a Novel from Scratch
+### Generate a Novel Using Python Script
+#### Generate a Novel from Scratch
 
 ```python
 import asyncio
@@ -53,7 +56,7 @@ if __name__ == "__main__":
    asyncio.run(main())
 ```
 
-### Resume Novel Generation from Checkpoint
+#### Resume Novel Generation from Checkpoint
 
 ```python
 import asyncio
@@ -64,14 +67,37 @@ from novel_genie.logger import logger
 
 async def main():
    novel_genie = NovelGenie()
-   user_input = "An ordinary office worker accidentally obtains a system and begins their journey of workplace counterattack."
 
-   novel = await novel_genie.generate_novel(user_input=user_input, resume_novel_id="your_novel_id")
+   novel = await novel_genie.generate_novel(user_input="", resume_novel_id="your_novel_id")
    logger.info(f"Generated novel: \n{novel}")
 
 
 if __name__ == '__main__':
    asyncio.run(main())
+```
+
+### Generate a Novel Using Command Line
+
+Here are three ways to use the command line:
+
+#### Generate a Novel from Screenshot
+
+```sh
+# Execute the following command
+novel -s
+# Use the shortcut Ctrl + Shift + S to generate a novel from a screenshot
+```
+
+#### Generate a Novel from Scratch
+
+```sh
+novel -i "An ordinary office worker accidentally obtains a system and begins their journey of workplace counterattack."
+```
+
+#### Resume Novel Generation from Checkpoint
+
+```sh
+novel -r "your_novel_id"
 ```
 
 ## Contributing

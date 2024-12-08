@@ -306,13 +306,11 @@ class NovelGenie(BaseModel):
         self.user_input = user_input
         logger.info("Starting new novel generation")
 
-        logger.info("Analyzing user input to extract story details")
         self.intent = await self.analyze_intent() if not intent else intent
 
         self.novel_id = self.generate_novel_id(self.intent.title)
         logger.info(f"Generating novel ID for description: {self.intent.title}")
 
-        logger.info(f"Generating rough outline for novel '{self.intent.title}'")
         self.rough_outline = await self.generate_rough_outline()
 
         await self.generate_volumes()
