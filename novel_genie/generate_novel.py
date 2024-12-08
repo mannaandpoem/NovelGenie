@@ -322,6 +322,7 @@ class NovelGenie(BaseModel):
             cost_info=self.cost_tracker.get(),
         )
 
+        logger.info(f"Successfully generated novel for {self.novel_id}")
         return novel
 
     async def _resume_generation(self) -> Novel:
