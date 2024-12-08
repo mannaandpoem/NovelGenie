@@ -32,6 +32,7 @@ from novel_genie.schema import (
     RoughOutline,
 )
 from novel_genie.utils import (
+    T,
     extract_commands_from_response,
     extract_outline,
     parse_intent,
@@ -104,14 +105,9 @@ class NovelGenie(BaseModel):
     ) -> DetailedOutline:
         """Generate detailed outline for a single chapter."""
         # Apply sliding window to get latest n detailed outlines from previous detailed outlines
-        existing_detailed_outlines = (
-            self.volumes[self.current_volume_num - 1].detailed_outlines
-            if self.volumes
-            else []
+        existing_detailed_outlines = self._get_latest_elements(
+            attribute_name="detailed_outlines"
         )
-        existing_detailed_outlines = existing_detailed_outlines[
-            -self.generation_config.sliding_window_size :
-        ]
 
         # FIXME: rough_outline should be fix
         prompt = DETAILED_OUTLINE_GENERATOR_PROMPT_V2.format(
@@ -127,7 +123,9 @@ class NovelGenie(BaseModel):
             section_word_count=self.generation_config.section_word_count,
             prev_volume_summary=prev_volume_summary,
             chapter_outline=self.chapter_outline,
-            existing_detailed_outline="\n\n".join(existing_detailed_outlines),
+            existing_detailed_outlines="\n\n".join(
+                str(outline) for outline in existing_detailed_outlines
+            ),
         )
         response = await self.llm.ask(prompt)
         return extract_outline(response, OutlineType.DETAILED)
@@ -135,16 +133,7 @@ class NovelGenie(BaseModel):
     @save_checkpoint(CheckpointType.CHAPTER)
     async def generate_chapter(self) -> Chapter:
         """Generate a single chapter."""
-        existing_chapters = (
-            self.volumes[self.current_volume_num - 1].chapters if self.volumes else []
-        )
-        # Apply sliding window to get latest n chapters from previous chapters
-        existing_chapters = existing_chapters[
-            -self.generation_config.sliding_window_size :
-        ]
-        chapters = [
-            f"{chapter.title}\n{chapter.content}" for chapter in existing_chapters
-        ]
+        existing_chapters = self._get_latest_elements(attribute_name="chapters")
         prompt = CONTENT_GENERATOR_PROMPT_V2.format(
             description=self.intent.description,
             work_length=self.intent.work_length,
@@ -157,12 +146,14 @@ class NovelGenie(BaseModel):
             chapter_outline=self.chapter_outline,
             detailed_outline=self.detailed_outline,
             section_word_count=self.generation_config.section_word_count,
-            chapters="\n\n".join(chapters),
+            existing_chapters="\n\n".join(
+                str(outline) for outline in existing_chapters
+            ),
         )
         response = await self.llm.ask(prompt)
         # Extract chapter title and content
-        title = re.search(r"## 第[0-9零一二三四五六七八九]+章 .+", response).group()
-        content = response.replace(title, "").strip()
+        title = re.search(r"## 第\s*[0-9零一二三四五六七八九]+\s*章\s+.+", response).group()
+        content = response.split(title, 1)[1].strip()
         return Chapter(title=title, content=content)
 
     @save_checkpoint(CheckpointType.CHAPTER)
@@ -183,16 +174,9 @@ class NovelGenie(BaseModel):
         self, prev_volume_summary: Optional[str] = None
     ) -> ChapterOutline:
         """Generate chapter outline for a volume."""
-        existing_chapter_outlines = (
-            self.volumes[self.current_volume_num - 1].chapter_outlines
-            if self.volumes
-            else []
+        existing_chapter_outlines = self._get_latest_elements(
+            attribute_name="chapter_outlines"
         )
-        # Apply sliding window to get latest n chapter outlines from previous chapter outlines
-        existing_chapter_outline = existing_chapter_outlines[
-            -self.generation_config.sliding_window_size :
-        ]
-
         prompt = CHAPTER_OUTLINE_GENERATOR_PROMPT.format(
             user_input=self.user_input,
             work_length=self.intent.work_length,
@@ -204,23 +188,47 @@ class NovelGenie(BaseModel):
             character_system=self.rough_outline.character_system,
             volume_design=self.rough_outline.volume_design[self.current_volume_num - 1],
             section_word_count=self.generation_config.section_word_count,
-            existing_chapter_outline="\n\n".join(existing_chapter_outline),
+            existing_chapter_outlines="\n\n".join(
+                str(outline) for outline in existing_chapter_outlines
+            ),
             prev_volume_summary=prev_volume_summary,
         )
         response = await self.llm.ask(prompt)
         return extract_outline(response, OutlineType.CHAPTER)
 
+    def _get_latest_elements(self, attribute_name: str) -> List[T]:
+        """从当前卷或上一卷中获取指定属性的最新元素。"""
+        # 尝试从当前卷获取指定属性
+        current_volume_elements = (
+            getattr(self.volumes[self.current_volume_num - 1], attribute_name, [])
+            if self.volumes and self.current_volume_num > 0
+            else []
+        )
+
+        # 如果当前卷的元素为空，尝试从上一卷获取
+        if not current_volume_elements and self.current_volume_num > 1:
+            previous_volume_elements = getattr(
+                self.volumes[self.current_volume_num - 2], attribute_name, []
+            )
+            # 从上一卷获取最新的几条元素
+            current_volume_elements = previous_volume_elements[
+                -self.generation_config.sliding_window_size :
+            ]
+
+        logger.info(
+            f"Found {len(current_volume_elements)} existing elements for {attribute_name}"
+        )
+
+        # 返回经过滑动窗口处理后的元素
+        return current_volume_elements[-self.generation_config.sliding_window_size :]
+
     @save_checkpoint(CheckpointType.VOLUME)
     async def generate_volume(
         self,
+        volume: NovelVolume,
         prev_volume_summary: Optional[str] = None,
     ) -> NovelVolume:
         """Generate a complete volume of the novel."""
-        logger.info(f"Starting generation of volume {self.current_volume_num}")
-
-        # Initialize volume with empty data first
-        volume = NovelVolume(volume_num=self.current_volume_num)
-
         # Generate chapters one by one
         chapter_count_per_volume = self.generation_config.chapter_count_per_volume
         start_chapter = chapter_count_per_volume * (self.current_volume_num - 1) + 1
@@ -272,17 +280,15 @@ class NovelGenie(BaseModel):
 
         volume.chapters.append(chapter)
 
-    async def generate_volumes(self) -> List[NovelVolume]:
+    async def generate_volumes(self):
         """Generate volumes for the novel."""
-        volumes: List[NovelVolume] = []
         start_volume = self.current_volume_num or 1
         for volume_num in range(start_volume, self.generation_config.volume_count + 1):
             self.current_volume_num = volume_num
             logger.info(f"Starting generation of volume {self.current_volume_num}")
-            volume = await self.generate_volume()
-            volumes.append(volume)
-
-        return volumes
+            volume = NovelVolume(volume_num=self.current_volume_num)
+            self.volumes.append(volume)
+            await self.generate_volume(volume)
 
     @save_checkpoint(CheckpointType.NOVEL)
     async def generate_novel(
@@ -309,7 +315,7 @@ class NovelGenie(BaseModel):
         logger.info(f"Generating rough outline for novel '{self.intent.title}'")
         self.rough_outline = await self.generate_rough_outline()
 
-        self.volumes = await self.generate_volumes()
+        await self.generate_volumes()
 
         novel = Novel(
             intent=self.intent,
@@ -320,7 +326,6 @@ class NovelGenie(BaseModel):
 
         return novel
 
-    @save_checkpoint(CheckpointType.NOVEL)
     async def _resume_generation(self) -> Novel:
         """Resume novel generation from checkpoint."""
         checkpoint_data = self.novel_saver.load_checkpoint(self.novel_id)
@@ -361,8 +366,7 @@ class NovelGenie(BaseModel):
                 )
                 volumes.append(volume)
 
-            self.volumes = volumes
-            self.volumes = await self.generate_volumes()
+            await self.generate_volumes()
 
             # Create and return novel object
             novel = Novel(

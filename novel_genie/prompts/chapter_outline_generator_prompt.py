@@ -35,7 +35,7 @@ CHAPTER_OUTLINE_GENERATOR_PROMPT = """
 {volume_design}
 
 ## 已有的章纲
-{existing_chapter_outline}
+{existing_chapter_outlines}
 
 # 输出格式
 请你以 <chapter_overview> 和 <characters_content> 标签的格式输出网文章节纲要。

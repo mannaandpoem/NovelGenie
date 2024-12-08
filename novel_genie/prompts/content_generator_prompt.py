@@ -152,7 +152,7 @@ CONTENT_GENERATOR_PROMPT_V2 = """
 {detailed_outline}
 
 ## 已有章节
-{chapters}
+{existing_chapters}
 ---
 # 创作核心框架
 

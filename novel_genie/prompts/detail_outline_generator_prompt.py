@@ -190,7 +190,7 @@ DETAILED_OUTLINE_GENERATOR_PROMPT_V2 = """
 {chapter_outline}
 
 ## 已有的细纲
-{existing_detailed_outline}
+{existing_detailed_outlines}
 
 # 输出格式
 请你以 <storyline> 标签的格式输出你撰写的网文细纲，包含10～30个情节点。

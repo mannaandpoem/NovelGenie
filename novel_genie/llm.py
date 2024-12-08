@@ -80,5 +80,5 @@ class LLM(BaseModel):
             # Print the chunk directly to console
             print(chunk_message, end="", flush=True)
 
-        # Return the complete message
+        print()
         return "".join(collected_messages).strip()
