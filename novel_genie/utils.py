@@ -287,7 +287,7 @@ def save_checkpoint(checkpoint_type: CheckpointType):
     return decorator
 
 
-def parse_intent(response: str) -> Tuple[str, str, str]:
+def parse_intent(response: str) -> Tuple[str, str, str, str]:
     """
     Parse intent analysis response and extract components.
 
@@ -303,6 +303,7 @@ def parse_intent(response: str) -> Tuple[str, str, str]:
         intent_json.get("title"),
         intent_json.get("description"),
         intent_json.get("genre"),
+        intent_json.get("work_length"),
     )
 
 

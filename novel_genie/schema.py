@@ -87,7 +87,8 @@ class NovelIntent(BaseModel):
 
     title: str = Field(..., description="小说名称")
     description: str = Field(..., description="小说的基本描述")
-    genre: str = Field(..., description="小说的类型")
+    genre: str = Field("轻小说", description="小说的类型")
+    work_length: str = Field("短篇", description="小说的篇幅")
 
 
 class Novel(BaseModel):

@@ -66,21 +66,22 @@ class NovelGenie(BaseModel):
         arbitrary_types_allowed = True
 
     @staticmethod
-    def generate_novel_id(description: str) -> str:
+    def generate_novel_id(title: str) -> str:
         """Generate unique novel ID."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        return f"{description[:5]}_{timestamp}"
+        return f"{title}_{timestamp}"
 
     async def analyze_intent(self) -> NovelIntent:
         """Analyze user input to extract story details."""
         logger.info("Analyzing user input to extract story details")
         prompt = INTENT_ANALYZER_PROMPT.format(user_input=self.user_input)
         response = await self.llm.ask(prompt)
-        title, description, genre = parse_intent(response)
+        title, description, genre, work_length = parse_intent(response)
         return NovelIntent(
             title=title,
             description=description,
             genre=genre,
+            work_length=work_length,
         )
 
     async def generate_rough_outline(self) -> RoughOutline:
@@ -88,6 +89,7 @@ class NovelGenie(BaseModel):
         logger.info(f"Generating rough outline for novel '{self.intent.title}'")
         prompt = ROUGH_OUTLINE_GENERATOR_PROMPT_V2.format(
             user_input=self.user_input,
+            work_length=self.intent.work_length,
             title=self.intent.title,
             genre=self.intent.genre,
             description=self.intent.description,
@@ -113,6 +115,8 @@ class NovelGenie(BaseModel):
 
         # FIXME: rough_outline should be fix
         prompt = DETAILED_OUTLINE_GENERATOR_PROMPT_V2.format(
+            work_length=self.intent.work_length,
+            chapter_count_per_volume=self.generation_config.chapter_count_per_volume,
             designated_volume=self.current_volume_num,
             designated_chapter=self.current_chapter_num,
             description=self.intent.description,
@@ -143,6 +147,9 @@ class NovelGenie(BaseModel):
         ]
         prompt = CONTENT_GENERATOR_PROMPT_V2.format(
             description=self.intent.description,
+            work_length=self.intent.work_length,
+            chapter_count_per_volume=self.generation_config.chapter_count_per_volume,
+            designated_volume=self.current_volume_num,
             designated_chapter=self.current_chapter_num,
             worldview_system=self.rough_outline.worldview_system,
             character_system=self.rough_outline.character_system,
@@ -188,6 +195,8 @@ class NovelGenie(BaseModel):
 
         prompt = CHAPTER_OUTLINE_GENERATOR_PROMPT.format(
             user_input=self.user_input,
+            work_length=self.intent.work_length,
+            chapter_count_per_volume=self.generation_config.chapter_count_per_volume,
             designated_volume=self.current_volume_num,
             designated_chapter=self.current_chapter_num,
             description=self.intent.description,
@@ -231,7 +240,7 @@ class NovelGenie(BaseModel):
                 volume=volume, prev_volume_summary=prev_volume_summary
             )
             logger.info(
-                f"Successfully generated chapter {chapter_num + 1} in volume {self.current_volume_num}"
+                f"Successfully generated chapter {self.current_chapter_num} in volume {self.current_volume_num}"
             )
 
         return volume
@@ -294,10 +303,8 @@ class NovelGenie(BaseModel):
         logger.info("Analyzing user input to extract story details")
         self.intent = await self.analyze_intent() if not intent else intent
 
-        self.novel_id = self.generate_novel_id(self.intent.description)
-        logger.info(
-            f"Generating novel ID for description: {self.intent.description[:5]}"
-        )
+        self.novel_id = self.generate_novel_id(self.intent.title)
+        logger.info(f"Generating novel ID for description: {self.intent.title}")
 
         logger.info(f"Generating rough outline for novel '{self.intent.title}'")
         self.rough_outline = await self.generate_rough_outline()

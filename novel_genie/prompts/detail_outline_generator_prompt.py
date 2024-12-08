@@ -167,8 +167,12 @@ DETAILED_OUTLINE_GENERATOR_PROMPT_V2 = """
 - 避免空洞的场景跳转，所有过渡通过细节展现，让读者在事件本身的叙事链条中自然跟随剧情演进。
 
 # 用户输入
-## 指定分卷章节
-第{designated_volume}卷：第{designated_chapter}章
+## 指定分卷
+作品篇幅: {work_length}
+第{designated_volume}卷，共{chapter_count_per_volume}章
+
+## 指定章节
+第{designated_chapter}章
 
 ## 网文描述
 {description}

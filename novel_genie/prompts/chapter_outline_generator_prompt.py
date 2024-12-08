@@ -11,8 +11,13 @@ CHAPTER_OUTLINE_GENERATOR_PROMPT = """
 4. 不以完整事件或场景作为章节分割依据，以字数控制划分章节，确保情节自然流动。
 
 # 输入要求
-## 指定分卷章节
-第 {designated_volume} 卷-第 {designated_chapter} 章
+
+## 指定分卷
+作品篇幅: {work_length}
+第 {designated_volume} 卷，共 {chapter_count_per_volume} 章
+
+## 指定章节
+第{designated_chapter}章
 
 ## 用户需求
 {user_input}
