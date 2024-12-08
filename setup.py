@@ -1,18 +1,26 @@
 from setuptools import find_packages, setup
 
 
+# 读取中文和英文的README
+with open("README.md", encoding="utf-8") as f:
+    long_description = f.read()
+
+# 可选：读取英文版README的内容
+with open("README_EN.md", encoding="utf-8") as f:
+    long_description_en = f.read()
+
+# 合并两部分内容
+full_long_description = long_description + "\n\n" + long_description_en
+
 setup(
-    name="NovelGenie",
+    name="novel-genie",
     version="0.1.0",
     author="mannaandpoem",
     author_email="1580466765@qq.com",
     description="A tool to generate novels via command line input or screenshots",
-    long_description=open("README.md", encoding="utf-8").read(),
+    long_description=full_long_description,
     long_description_content_type="text/markdown",
-    package_data={
-        "novel_genie": ["README.md", "README_EN.md"],
-    },
-    url="https://github.com/mannaandpoem/NovelGenie",  # Replace with your project URL
+    url="https://github.com/mannaandpoem/NovelGenie",
     packages=find_packages(),
     install_requires=[
         "openai~=0.28.0",
@@ -26,7 +34,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "novel=novel_genie.app:main",  # Defines the 'novel' command
+            "novel=novel_genie.app:main",
         ],
     },
     classifiers=[
@@ -34,4 +42,7 @@ setup(
         "Operating System :: OS Independent",
     ],
     python_requires=">=3.10",
+    package_data={
+        "novel_genie": ["README.md", "README_EN.md"],
+    },
 )
