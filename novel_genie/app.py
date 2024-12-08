@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import os
 import platform
 import queue
 import subprocess
@@ -14,12 +15,15 @@ from PIL import ImageGrab
 from pynput import keyboard
 from pynput.keyboard import Key, KeyCode
 
+from novel_genie.config import NOVEL_GENIE_ROOT
 from novel_genie.generate_novel import NovelGenie
 from novel_genie.logger import logger
 
 
 # Define the shortcut combination: Ctrl + Shift + S
 SHORTCUT_COMBINATION = {Key.ctrl, Key.shift, KeyCode.from_char("s")}
+SCREENSHOT_PATH = f"{NOVEL_GENIE_ROOT}/workspace/screenshot"
+os.makedirs(SCREENSHOT_PATH, exist_ok=True)
 
 # Create a thread-safe queue for communication between threads
 shortcut_queue = queue.Queue()
@@ -30,10 +34,9 @@ async def generate_and_display_novel(
 ):
     novel_genie = NovelGenie()
     try:
-        novel = await novel_genie.generate_novel(
+        await novel_genie.generate_novel(
             user_input=user_input, resume_novel_id=resume_novel_id
         )
-        logger.info(f"Generated Novel:\n{novel}")
     except Exception as e:
         logger.error(f"Failed to generate novel: {e}")
 
@@ -52,12 +55,11 @@ def extract_text_from_image(image_path: str) -> Optional[str]:
         return None
 
 
-def take_screenshot_mac() -> Optional[str]:
+def take_screenshot_mac(screenshot_path: str) -> Optional[str]:
     """
     Use macOS's screencapture tool for region-based screenshots
     """
     try:
-        screenshot_path = "screenshot.png"
         logger.info("Launching macOS region screenshot tool...")
         # Invoke screencapture with interactive mode
         subprocess.run(["screencapture", "-i", screenshot_path], check=True)
@@ -68,12 +70,11 @@ def take_screenshot_mac() -> Optional[str]:
         return None
 
 
-def take_screenshot_windows() -> Optional[str]:
+def take_screenshot_windows(screenshot_path: str) -> Optional[str]:
     """
     Use Windows' built-in screenshot tool for region-based screenshots
     """
     try:
-        screenshot_path = "screenshot.png"
         logger.info("Launching Windows region screenshot tool...")
         # Simulate pressing Win + Shift + S
         pyautogui.hotkey("win", "shift", "s")
@@ -96,10 +97,13 @@ def take_screenshot_windows() -> Optional[str]:
 
 def take_screenshot() -> Optional[str]:
     system = platform.system()
+    name = time.strftime("%Y-%m-%d_%H-%M-%S")
+    screenshot_path = os.path.join(SCREENSHOT_PATH, f"screenshot_{name}.png")
+    os.makedirs(SCREENSHOT_PATH, exist_ok=True)
     if system == "Darwin":
-        return take_screenshot_mac()
+        return take_screenshot_mac(screenshot_path)
     elif system == "Windows":
-        return take_screenshot_windows()
+        return take_screenshot_windows(screenshot_path)
     else:
         logger.error(f"Unsupported Operating System: {system}")
         return None
