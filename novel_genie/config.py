@@ -10,7 +10,7 @@ def get_project_root() -> str:
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-NovelGenie = get_project_root()
+NOVEL_GENIE_ROOT = get_project_root()
 
 
 class LLMSettings(BaseModel):
@@ -66,7 +66,7 @@ class Config:
     @staticmethod
     def _get_config_path() -> str:
         """获取配置文件路径"""
-        root = NovelGenie
+        root = NOVEL_GENIE_ROOT
         config_path = os.path.join(root, "config", "config.yaml")
         if not os.path.exists(config_path):
             config_path = os.path.join(root, "config", "config.example.yaml")
