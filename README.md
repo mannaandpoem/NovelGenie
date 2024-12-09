@@ -38,42 +38,20 @@ NovelGenie 是一款智能网文创作助手，能够基于用户提供的创意
 #### 从头开始生成小说
 
 ```python
-import asyncio
-
-from novel_genie.generate_novel import NovelGenie
-from novel_genie.logger import logger
-
-
-async def main():
-   novel_genie = NovelGenie()
-   user_input = "普通上班族意外获得系统，开始了自己的职场逆袭之路。"
-
-   novel = await novel_genie.generate_novel(user_input=user_input)
-   logger.info(f"Generated novel: \n{novel}")
-
-
-if __name__ == "__main__":
-   asyncio.run(main())
+python app.py -i "普通上班族意外获得系统，开始了自己的职场逆袭之路。"
 ```
 
 #### 从检查点恢复生成小说
 
 ```python
-import asyncio
+python app.py -r "your_novel_id"
+```
 
-from novel_genie.generate_novel import NovelGenie
-from novel_genie.logger import logger
+#### 从截图生成小说
 
-
-async def main():
-   novel_genie = NovelGenie()
-
-   novel = await novel_genie.generate_novel(user_input="", resume_novel_id="your_novel_id")
-   logger.info(f"Generated novel: \n{novel}")
-
-
-if __name__ == '__main__':
-   asyncio.run(main())
+```python
+python app.py -s
+# 使用快捷键 Ctrl + Shift + S 截图生成小说
 ```
 
 ### 使用命令行生成小说

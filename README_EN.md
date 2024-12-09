@@ -38,42 +38,19 @@ Before using, please check `config.example.yaml` and create and configure your `
 #### Generate a Novel from Scratch
 
 ```python
-import asyncio
-
-from novel_genie.generate_novel import NovelGenie
-from novel_genie.logger import logger
-
-
-async def main():
-   novel_genie = NovelGenie()
-   user_input = "An ordinary office worker accidentally obtains a system and begins their journey of workplace counterattack."
-
-   novel = await novel_genie.generate_novel(user_input=user_input)
-   logger.info(f"Generated novel: \n{novel}")
-
-
-if __name__ == "__main__":
-   asyncio.run(main())
+python app.py -i "An ordinary office worker accidentally obtains a system and begins their journey of workplace counterattack."
 ```
 
 #### Resume Novel Generation from Checkpoint
 
 ```python
-import asyncio
+python app.py -r "your_novel_id"
+```
 
-from novel_genie.generate_novel import NovelGenie
-from novel_genie.logger import logger
-
-
-async def main():
-   novel_genie = NovelGenie()
-
-   novel = await novel_genie.generate_novel(user_input="", resume_novel_id="your_novel_id")
-   logger.info(f"Generated novel: \n{novel}")
-
-
-if __name__ == '__main__':
-   asyncio.run(main())
+#### Generate a Novel from Screenshot
+```python
+python app.py -s
+# Use the shortcut Ctrl + Shift + S to generate a novel from a screenshot
 ```
 
 ### Generate a Novel Using Command Line
